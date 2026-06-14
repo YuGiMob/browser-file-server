@@ -65,18 +65,21 @@ def render_listing(
     if features.get("upload", True):
         upload_html = f"""
         <div class="upload-zone" id="upload-zone">
+            <div style="font-size: 36px; margin-bottom: 8px;">📁</div>
             <div class="upload-zone-text">
-                Drag and drop files here or click to select
+                <strong>Tap to select files</strong> or drag & drop
             </div>
-            <form method="post" action="/upload" enctype="multipart/form-data" id="upload-form">
+            <form method="post" action="/upload" enctype="multipart/form-data" id="upload-form" style="margin-top: 12px;">
                 <input type="hidden" name="p" value="{current_path}">
-                <input type="file" name="f" multiple id="file-input" style="display: none;">
-                <button type="button" class="btn" onclick="document.getElementById('file-input').click()">
-                    📁 Select Files
-                </button>
-                <button type="submit" class="btn btn-success" style="margin-left: 8px;">
-                    ⬆️ Upload
-                </button>
+                <input type="file" name="f" multiple id="file-input" style="display: none;" accept="*/*">
+                <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+                    <button type="button" class="btn" onclick="document.getElementById('file-input').click()">
+                        📁 Choose Files
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        ⬆️ Upload
+                    </button>
+                </div>
             </form>
         </div>"""
 
@@ -103,25 +106,30 @@ def render_listing(
 <div class="toolbar">
     <div class="container">
         <div class="toolbar-content">
-            <div class="toolbar-row">
-                <a href="/?p={quote(_get_parent_path(current_path))}" class="btn btn-outline btn-sm">⬆️ Up</a>
-                <div class="breadcrumb">{breadcrumb}</div>
-                <div style="flex: 1;"></div>
-                {search_html}
-                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌓</button>
+            <div class="toolbar-row" style="justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+                    <a href="/?p={quote(_get_parent_path(current_path))}" class="btn btn-outline btn-sm" style="flex-shrink: 0;">⬆️</a>
+                    <div class="breadcrumb">{breadcrumb}</div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                    {search_html}
+                    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌓</button>
+                </div>
             </div>
-            <div class="toolbar-row">
+            <div class="toolbar-row" style="gap: 12px;">
                 {mkdir_html}
-                {sort_options}
-                <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
-                    <input type="checkbox" id="select-all" onchange="selectAll(this.checked)">
-                    <span style="font-size: 12px;">Select all</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
-                    <input type="checkbox" {'checked' if show_hidden else ''} 
-                           onchange="toggleHidden(this.checked)">
-                    <span style="font-size: 12px;">Show hidden</span>
-                </label>
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    {sort_options}
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 8px 0;">
+                        <input type="checkbox" id="select-all" onchange="selectAll(this.checked)">
+                        <span style="font-size: 14px;">Select all</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 8px 0;">
+                        <input type="checkbox" {'checked' if show_hidden else ''} 
+                               onchange="toggleHidden(this.checked)">
+                        <span style="font-size: 14px;">Hidden</span>
+                    </label>
+                </div>
             </div>
         </div>
     </div>
@@ -132,18 +140,21 @@ def render_listing(
     
     {upload_html}
     
-    <div style="display: flex; justify-content: space-between; align-items: center; margin: 16px 0; flex-wrap: wrap; gap: 8px;">
-        <div class="filter-bar" style="margin: 0;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin: 12px 0; gap: 8px;">
+        <div class="filter-bar" style="margin: 0; flex: 1;">
             <button class="filter-btn active" data-filter="all">All</button>
             <button class="filter-btn" data-filter="folder">📁 Folders</button>
-            <button class="filter-btn" data-filter="text">📄 Documents</button>
+            <button class="filter-btn" data-filter="text">📄 Docs</button>
             <button class="filter-btn" data-filter="image">🖼️ Images</button>
-            <button class="filter-btn" data-filter="video">🎬 Videos</button>
+            <button class="filter-btn" data-filter="video">🎬 Video</button>
             <button class="filter-btn" data-filter="audio">🎵 Audio</button>
         </div>
-        <div id="batch-actions" style="display: none;">
-            <button class="btn btn-sm btn-success" onclick="downloadSelected()">📦 Download Selected as ZIP</button>
-            <span id="selected-count" style="margin-left: 8px; color: var(--text-secondary); font-size: 12px;"></span>
+    </div>
+    <div id="batch-actions" style="display: none; margin: 12px 0; padding: 12px; background: var(--bg-secondary); border-radius: var(--radius); border: 1px solid var(--border);">
+        <div class="batch-actions">
+            <button class="btn btn-sm btn-success" onclick="downloadSelected()">📦 Download ZIP</button>
+            <button class="btn btn-sm btn-outline" onclick="selectAll(false)">✕ Clear</button>
+            <span id="selected-count" class="selected-count"></span>
         </div>
     </div>
     
@@ -314,9 +325,9 @@ def _build_sort_options(sort_by: str, current_path: str) -> str:
     """Build sort options HTML."""
     encoded_path = quote(current_path)
     options = [
-        ("name", "Name"),
-        ("size", "Size"),
-        ("modified", "Modified"),
+        ("name", "📝 Name"),
+        ("size", "📏 Size"),
+        ("modified", "🕐 Date"),
     ]
 
     buttons = []
@@ -324,10 +335,10 @@ def _build_sort_options(sort_by: str, current_path: str) -> str:
         active = "active" if sort_by == value else ""
         buttons.append(
             f'<a href="/?p={encoded_path}&sort={value}" '
-            f'class="filter-btn {active}">{label}</a>'
+            f'class="filter-btn {active}" style="padding: 6px 10px; font-size: 13px;">{label}</a>'
         )
 
-    return f'<div class="toolbar-row">Sort: {"".join(buttons)}</div>'
+    return f'<div style="display: flex; gap: 4px;">{"".join(buttons)}</div>'
 
 
 def _build_pagination(page: int, total_pages: int, current_path: str, search_query: str) -> str:
