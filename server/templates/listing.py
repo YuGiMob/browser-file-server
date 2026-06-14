@@ -1,9 +1,10 @@
 """
-Directory listing template.
+Directory listing template with professional mobile-app design.
 """
 
 from typing import List, Optional
 from urllib.parse import quote
+
 
 from ..storage import FileInfo, format_size, format_time, get_icon_for_file
 
@@ -22,150 +23,195 @@ def render_listing(
 ) -> str:
     """
     Render directory listing HTML.
-
-    Args:
-        files: List of file info objects
-        current_path: Current directory path
-        search_query: Search query
-        sort_by: Current sort field
-        show_hidden: Whether hidden files are shown
-        flash_message: Flash message to display
-        flash_type: Flash message type
-        page: Current page number
-        total_pages: Total number of pages
-        features: Feature flags
-
-    Returns:
-        HTML string
     """
     features = features or {}
     encoded_path = quote(current_path)
-
-    # Build breadcrumb
     breadcrumb = _build_breadcrumb(current_path)
-
-    # Build flash message
+    
     flash_html = ""
     if flash_message:
         flash_html = f'<div class="flash flash-{flash_type}">{flash_message}</div>'
-
-    # Build file list
+    
     file_items = []
     for file_info in files:
         file_items.append(_render_file_item(file_info, current_path, features))
-
-    # Build sort options
-    sort_options = _build_sort_options(sort_by, current_path)
-
-    # Build pagination
-    pagination_html = _build_pagination(page, total_pages, current_path, search_query)
-
-    # Build feature-specific elements
+    
     upload_html = ""
     if features.get("upload", True):
-        upload_html = f"""
+        upload_html = f'''
         <div class="upload-zone" id="upload-zone">
-            <div style="font-size: 36px; margin-bottom: 8px;">📁</div>
+            <div class="upload-zone-icon">\U0001f4c1</div>
             <div class="upload-zone-text">
-                <strong>Tap to select files</strong> or drag & drop
+                <strong>Tap to upload</strong> or drag files here
             </div>
-            <form method="post" action="/upload" enctype="multipart/form-data" id="upload-form" style="margin-top: 12px;">
+            <form method="post" action="/upload" enctype="multipart/form-data" id="upload-form" style="margin-top: 16px;">
                 <input type="hidden" name="p" value="{current_path}">
                 <input type="file" name="f" multiple id="file-input" style="display: none;" accept="*/*">
-                <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
-                    <button type="button" class="btn" onclick="document.getElementById('file-input').click()">
-                        📁 Choose Files
-                    </button>
-                    <button type="submit" class="btn btn-success">
-                        ⬆️ Upload
-                    </button>
-                </div>
+                <button type="button" class="btn btn-ghost" onclick="document.getElementById('file-input').click()">
+                    Choose Files
+                </button>
             </form>
-        </div>"""
-
-    mkdir_html = ""
-    if features.get("mkdir", True):
-        mkdir_html = f"""
-        <form method="post" action="/mkdir" class="toolbar-row">
-            <input type="hidden" name="p" value="{current_path}">
-            <input type="text" name="name" placeholder="New folder name" required>
-            <button type="submit" class="btn btn-sm">📁 New Folder</button>
-        </form>"""
-
-    search_html = ""
-    if features.get("search", True):
-        search_html = f"""
-        <form method="get" action="/search" class="search-form">
-            <input type="hidden" name="p" value="{current_path}">
-            <input type="search" name="q" value="{search_query}" placeholder="Search files..." class="search-input">
-            <button type="submit" class="btn btn-sm">🔍 Search</button>
-        </form>"""
-
-    # Build page
+        </div>'''
+    
+    empty_html = ""
+    if not file_items:
+        empty_html = '<div class="empty-state"><div class="empty-state-icon">\U0001f4c2</div><div class="empty-state-title">No Files</div><div class="empty-state-text">This folder is empty. Upload files to get started.</div></div>'
+    
+    file_list_html = "".join(file_items)
+    
     html = f"""
-<div class="toolbar">
-    <div class="container">
-        <div class="toolbar-content">
-            <div class="toolbar-row" style="justify-content: space-between;">
-                <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
-                    <a href="/?p={quote(_get_parent_path(current_path))}" class="btn btn-outline btn-sm" style="flex-shrink: 0;">⬆️</a>
-                    <div class="breadcrumb">{breadcrumb}</div>
-                </div>
-                <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-                    {search_html}
-                    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌓</button>
-                </div>
-            </div>
-            <div class="toolbar-row" style="gap: 12px;">
-                {mkdir_html}
-                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                    {sort_options}
-                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 8px 0;">
-                        <input type="checkbox" id="select-all" onchange="selectAll(this.checked)">
-                        <span style="font-size: 14px;">Select all</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 8px 0;">
-                        <input type="checkbox" {'checked' if show_hidden else ''} 
-                               onchange="toggleHidden(this.checked)">
-                        <span style="font-size: 14px;">Hidden</span>
-                    </label>
-                </div>
+<div class="header">
+    <div class="header-content">
+        <div class="header-top">
+            <a href="/?p={quote(_get_parent_path(current_path))}" class="btn-icon">\u2b06\ufe0f</a>
+            <span class="header-title">{_get_display_name(current_path)}</span>
+            <div class="header-actions">
+                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">\U0001f313</button>
             </div>
         </div>
+        <div class="breadcrumb">{breadcrumb}</div>
+    </div>
+    <div class="search-bar">
+        <form method="get" action="/search" class="search-input-wrapper">
+            <input type="hidden" name="p" value="{current_path}">
+            <span class="search-icon">\U0001f50d</span>
+            <input type="search" name="q" value="{search_query}" placeholder="Search" class="search-input">
+        </form>
+    </div>
+    <div class="toolbar">
+        <div class="segmented-control">
+            <a href="/?p={encoded_path}&sort=name" class="segmented-btn {'active' if sort_by == 'name' else ''}">Name</a>
+            <a href="/?p={encoded_path}&sort=size" class="segmented-btn {'active' if sort_by == 'size' else ''}">Size</a>
+            <a href="/?p={encoded_path}&sort=modified" class="segmented-btn {'active' if sort_by == 'modified' else ''}">Date</a>
+        </div>
+        <div class="toolbar-spacer"></div>
+        <label class="checkbox-wrapper {'checked' if show_hidden else ''}" onclick="toggleHidden({str(not show_hidden).lower()})">
+            <div class="checkbox-indicator"></div>
+            <span class="checkbox-label">Hidden</span>
+        </label>
+        <button class="btn-icon" onclick="toggleSelectMode()" title="Select files">\u2611\ufe0f</button>
     </div>
 </div>
 
 <div class="container">
     {flash_html}
-    
     {upload_html}
-    
-    <div style="display: flex; justify-content: space-between; align-items: center; margin: 12px 0; gap: 8px;">
-        <div class="filter-bar" style="margin: 0; flex: 1;">
-            <button class="filter-btn active" data-filter="all">All</button>
-            <button class="filter-btn" data-filter="folder">📁 Folders</button>
-            <button class="filter-btn" data-filter="text">📄 Docs</button>
-            <button class="filter-btn" data-filter="image">🖼️ Images</button>
-            <button class="filter-btn" data-filter="video">🎬 Video</button>
-            <button class="filter-btn" data-filter="audio">🎵 Audio</button>
-        </div>
+    {empty_html}
+    {file_list_html}
+    {_build_pagination(page, total_pages, current_path, search_query)}
+</div>
+
+<div id="batch-bar" class="batch-bar">
+    <span id="batch-count" class="batch-info">0 selected</span>
+    <div class="batch-actions">
+        <button class="btn btn-sm btn-ghost" onclick="downloadSelected()">\U0001f4e6 ZIP</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteSelected()">\U0001f5d1\ufe0f Delete</button>
+        <button class="btn btn-sm btn-ghost" onclick="toggleSelectMode()">Cancel</button>
     </div>
-    <div id="batch-actions" style="display: none; margin: 12px 0; padding: 12px; background: var(--bg-secondary); border-radius: var(--radius); border: 1px solid var(--border);">
-        <div class="batch-actions">
-            <button class="btn btn-sm btn-success" onclick="downloadSelected()">📦 Download ZIP</button>
-            <button class="btn btn-sm btn-outline" onclick="selectAll(false)">✕ Clear</button>
-            <span id="selected-count" class="selected-count"></span>
-        </div>
-    </div>
-    
-    <ul class="file-list" id="file-list">
-        {''.join(file_items) if file_items else '<li class="file-item"><div class="file-info"><span class="file-name" style="color: var(--text-secondary);">No files found</span></div></li>'}
-    </ul>
-    
-    {pagination_html}
 </div>
 
 <script>
+let selectMode = false;
+let selectedFiles = new Set();
+
+function toggleSelectMode() {{
+    selectMode = !selectMode;
+    selectedFiles.clear();
+    updateBatchBar();
+    
+    document.querySelectorAll('.file-checkbox').forEach(cb => {{
+        cb.classList.toggle('hidden', !selectMode);
+    }});
+    
+    document.querySelectorAll('.file-item').forEach(item => {{
+        item.classList.remove('selected');
+    }});
+}}
+
+function toggleFileSelect(path, element) {{
+    if (!selectMode) return;
+    
+    if (selectedFiles.has(path)) {{
+        selectedFiles.delete(path);
+        element.classList.remove('checked');
+        element.closest('.file-item').classList.remove('selected');
+    }} else {{
+        selectedFiles.add(path);
+        element.classList.add('checked');
+        element.closest('.file-item').classList.add('selected');
+    }}
+    
+    updateBatchBar();
+}}
+
+function updateBatchBar() {{
+    const batchBar = document.getElementById('batch-bar');
+    const batchCount = document.getElementById('batch-count');
+    
+    if (selectMode && selectedFiles.size > 0) {{
+        batchBar.classList.add('active');
+        batchCount.textContent = `${{selectedFiles.size}} selected`;
+    }} else {{
+        batchBar.classList.remove('active');
+    }}
+}}
+
+function downloadSelected() {{
+    if (selectedFiles.size === 0) return;
+    
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/download-selected';
+    
+    const pathInput = document.createElement('input');
+    pathInput.type = 'hidden';
+    pathInput.name = 'p';
+    pathInput.value = '{current_path}';
+    form.appendChild(pathInput);
+    
+    selectedFiles.forEach(f => {{
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'files';
+        input.value = f;
+        form.appendChild(input);
+    }});
+    
+    document.body.appendChild(form);
+    form.submit();
+}}
+
+function deleteSelected() {{
+    if (selectedFiles.size === 0) return;
+    
+    if (!confirm(`Delete ${{selectedFiles.size}} items?`)) return;
+    
+    selectedFiles.forEach(path => {{
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/delete';
+        
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'p';
+        input.value = path;
+        form.appendChild(input);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }});
+}}
+
+function toggleHidden(show) {{
+    const url = new URL(window.location);
+    url.searchParams.set('hidden', show ? '1' : '0');
+    window.location.href = url.toString();
+}}
+
+function confirmDelete(name) {{
+    return confirm(`Delete "${{name}}"?`);
+}}
+
 // File input change handler
 const fileInput = document.getElementById('file-input');
 if (fileInput) {{
@@ -176,52 +222,43 @@ if (fileInput) {{
     }});
 }}
 
-// Filter functionality
-document.querySelectorAll('.filter-btn').forEach(btn => {{
-    btn.addEventListener('click', function() {{
-        // Update active state
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        this.classList.add('active');
-        
-        const filter = this.dataset.filter;
-        const items = document.querySelectorAll('.file-item');
-        
-        items.forEach(item => {{
-            if (filter === 'all') {{
-                item.style.display = '';
-            }} else {{
-                const category = item.dataset.category;
-                item.style.display = (category === filter) ? '' : 'none';
-            }}
+// Drag and drop
+const uploadZone = document.getElementById('upload-zone');
+if (uploadZone) {{
+    ['dragenter', 'dragover'].forEach(eventName => {{
+        uploadZone.addEventListener(eventName, e => {{
+            e.preventDefault();
+            e.stopPropagation();
+            uploadZone.classList.add('dragover');
         }});
     }});
-}});
-
-// Toggle hidden files
-function toggleHidden(show) {{
-    const url = new URL(window.location);
-    url.searchParams.set('hidden', show ? '1' : '0');
-    window.location.href = url.toString();
-}}
-
-// Confirm delete
-function confirmDelete(name) {{
-    return confirm(`Are you sure you want to delete "${{name}}"?`);
+    
+    ['dragleave', 'drop'].forEach(eventName => {{
+        uploadZone.addEventListener(eventName, e => {{
+            e.preventDefault();
+            e.stopPropagation();
+            uploadZone.classList.remove('dragover');
+        }});
+    }});
+    
+    uploadZone.addEventListener('drop', e => {{
+        const input = uploadZone.querySelector('input[type="file"]');
+        if (input) {{
+            input.files = e.dataTransfer.files;
+            input.dispatchEvent(new Event('change'));
+        }}
+    }});
 }}
 </script>
 """
-
     return html
 
 
 def _build_breadcrumb(path: str) -> str:
-    """Build breadcrumb navigation."""
     if not path:
         return '<span class="current">/</span>'
-
     parts = path.strip('/').split('/')
     html = '<a href="/">/</a>'
-
     current = ""
     for i, part in enumerate(parts):
         current += "/" + part if current else part
@@ -230,168 +267,86 @@ def _build_breadcrumb(path: str) -> str:
             html += f'<span class="separator">/</span><span class="current">{part}</span>'
         else:
             html += f'<span class="separator">/</span><a href="/?p={encoded}">{part}</a>'
-
     return html
 
 
 def _get_parent_path(path: str) -> str:
-    """Get parent directory path."""
     if not path:
         return ""
     parts = path.rstrip('/').split('/')
     return '/'.join(parts[:-1])
 
 
+def _get_display_name(path: str) -> str:
+    if not path:
+        return "Files"
+    return path.rstrip('/').split('/')[-1]
+
+
 def _render_file_item(file_info: FileInfo, current_path: str, features: dict) -> str:
-    """Render a single file item."""
     icon = get_icon_for_file(file_info.name, file_info.is_dir)
     encoded_path = quote(file_info.path)
     name_class = "file-name is-dir" if file_info.is_dir else "file-name"
-
-    # Build link
+    
     if file_info.is_dir:
-        link = f'<a href="/?p={encoded_path}">{file_info.name}/</a>'
+        link = f'<a href="/?p={encoded_path}">{file_info.name}</a>'
     elif file_info.is_text and features.get("edit", True):
         link = f'<a href="/?p={encoded_path}&edit=1">{file_info.name}</a>'
     else:
         link = f'<a href="/raw?p={encoded_path}">{file_info.name}</a>'
-
-    # Build metadata
+    
     meta_parts = []
     if not file_info.is_dir:
-        meta_parts.append(f'<span>{format_size(file_info.size)}</span>')
-    meta_parts.append(f'<span>{file_info.modified_str}</span>')
-    meta_parts.append(f'<span>{file_info.permissions}</span>')
-    meta_html = '<div class="file-meta">' + ''.join(meta_parts) + '</div>'
-
-    # Build actions
-    actions = []
-    if file_info.is_dir:
-        actions.append(f'<a href="/download?p={encoded_path}" class="btn btn-sm btn-outline" title="Download as ZIP">📦 ZIP</a>')
-        actions.append(f'<a href="/?p={encoded_path}" class="btn btn-sm btn-outline">Open</a>')
-    else:
-        if file_info.is_text and features.get("edit", True):
-            actions.append(f'<a href="/?p={encoded_path}&edit=1" class="btn btn-sm btn-outline">Edit</a>')
-        actions.append(f'<a href="/raw?p={encoded_path}" class="btn btn-sm btn-outline">Download</a>')
-
-    if features.get("delete", True):
-        actions.append(
-            f'<a href="/delete?p={encoded_path}" class="btn btn-sm btn-danger" '
-            f'onclick="return confirmDelete(\'{file_info.name}\')">Delete</a>'
-        )
-
-    actions_html = '<div class="file-actions">' + ''.join(actions) + '</div>'
-
-    # Get category for filtering
-    category = _get_category(file_info)
-
-    # Build checkbox for multi-select
-    checkbox = f'<input type="checkbox" class="file-checkbox" data-path="{file_info.path}" onchange="updateSelected()">'
+        meta_parts.append(format_size(file_info.size))
+    meta_parts.append(file_info.modified_str)
+    meta_html = ' \u00b7 '.join(meta_parts)
     
-    return f"""
-    <li class="file-item" data-category="{category}">
-        {checkbox}
-        <div class="file-icon">{icon}</div>
-        <div class="file-info">
-            <div class="{name_class}">{link}</div>
-            {meta_html}
+    icon_class = "file-icon folder" if file_info.is_dir else "file-icon"
+    
+    return f'''
+    <div class="file-group" style="margin-bottom: 2px;">
+        <div class="file-item" data-path="{file_info.path}">
+            <div class="file-checkbox hidden" onclick="toggleFileSelect('{file_info.path}', this)"></div>
+            <div class="{icon_class}">{icon}</div>
+            <div class="file-info">
+                <div class="{name_class}">{link}</div>
+                <div class="file-meta">{meta_html}</div>
+            </div>
+            <a href="/delete?p={encoded_path}" class="file-action-btn" onclick="return confirmDelete('{file_info.name}')">\u2026</a>
         </div>
-        {actions_html}
-    </li>"""
-
-
-def _get_category(file_info: FileInfo) -> str:
-    """Get file category for filtering."""
-    if file_info.is_dir:
-        return "folder"
-
-    ext = file_info.name.rsplit('.', 1)[-1].lower() if '.' in file_info.name else ""
-
-    image_exts = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico'}
-    video_exts = {'mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv', 'flv'}
-    audio_exts = {'mp3', 'wav', 'ogg', 'flac', 'aac', 'wma', 'm4a'}
-
-    if ext in image_exts:
-        return "image"
-    if ext in video_exts:
-        return "video"
-    if ext in audio_exts:
-        return "audio"
-
-    return "text"
-
-
-def _build_sort_options(sort_by: str, current_path: str) -> str:
-    """Build sort options HTML."""
-    encoded_path = quote(current_path)
-    options = [
-        ("name", "📝 Name"),
-        ("size", "📏 Size"),
-        ("modified", "🕐 Date"),
-    ]
-
-    buttons = []
-    for value, label in options:
-        active = "active" if sort_by == value else ""
-        buttons.append(
-            f'<a href="/?p={encoded_path}&sort={value}" '
-            f'class="filter-btn {active}" style="padding: 6px 10px; font-size: 13px;">{label}</a>'
-        )
-
-    return f'<div style="display: flex; gap: 4px;">{"".join(buttons)}</div>'
+    </div>'''
 
 
 def _build_pagination(page: int, total_pages: int, current_path: str, search_query: str) -> str:
-    """Build pagination HTML."""
     if total_pages <= 1:
         return ""
-
     encoded_path = quote(current_path)
     encoded_query = quote(search_query) if search_query else ""
-
     buttons = []
-
-    # Previous button
+    
     if page > 1:
-        buttons.append(
-            f'<a href="/?p={encoded_path}&page={page-1}&q={encoded_query}" '
-            f'class="btn btn-sm btn-outline">← Previous</a>'
-        )
-
-    # Page numbers
+        buttons.append(f'<a href="/?p={encoded_path}&page={page-1}&q={encoded_query}" class="btn btn-sm btn-ghost">\u2190 Previous</a>')
+    
     start = max(1, page - 2)
     end = min(total_pages, page + 2)
-
+    
     if start > 1:
-        buttons.append(
-            f'<a href="/?p={encoded_path}&page=1&q={encoded_query}" '
-            f'class="btn btn-sm btn-outline">1</a>'
-        )
+        buttons.append(f'<a href="/?p={encoded_path}&page=1&q={encoded_query}" class="btn btn-sm btn-ghost">1</a>')
         if start > 2:
             buttons.append('<span style="color: var(--text-muted);">...</span>')
-
+    
     for p in range(start, end + 1):
         if p == page:
-            buttons.append(f'<span class="btn btn-sm">{p}</span>')
+            buttons.append(f'<span class="btn btn-sm" style="background: var(--accent-bg); color: var(--accent);">{p}</span>')
         else:
-            buttons.append(
-                f'<a href="/?p={encoded_path}&page={p}&q={encoded_query}" '
-                f'class="btn btn-sm btn-outline">{p}</a>'
-            )
-
+            buttons.append(f'<a href="/?p={encoded_path}&page={p}&q={encoded_query}" class="btn btn-sm btn-ghost">{p}</a>')
+    
     if end < total_pages:
         if end < total_pages - 1:
             buttons.append('<span style="color: var(--text-muted);">...</span>')
-        buttons.append(
-            f'<a href="/?p={encoded_path}&page={total_pages}&q={encoded_query}" '
-            f'class="btn btn-sm btn-outline">{total_pages}</a>'
-        )
-
-    # Next button
+        buttons.append(f'<a href="/?p={encoded_path}&page={total_pages}&q={encoded_query}" class="btn btn-sm btn-ghost">{total_pages}</a>')
+    
     if page < total_pages:
-        buttons.append(
-            f'<a href="/?p={encoded_path}&page={page+1}&q={encoded_query}" '
-            f'class="btn btn-sm btn-outline">Next →</a>'
-        )
-
-    return f'<div style="display: flex; justify-content: center; gap: 8px; margin: 24px 0;">{"".join(buttons)}</div>'
+        buttons.append(f'<a href="/?p={encoded_path}&page={page+1}&q={encoded_query}" class="btn btn-sm btn-ghost">Next \u2192</a>')
+    
+    return f'<div style="display: flex; justify-content: center; gap: 8px; margin: 24px 0; flex-wrap: wrap;">{"".join(buttons)}</div>'

@@ -1,5 +1,5 @@
 """
-Error page template.
+Error page template with professional mobile-app design.
 """
 
 from typing import Optional
@@ -29,31 +29,31 @@ def render_error(
     details_html = ""
     if details:
         details_html = f"""
-        <div style="margin-top: 16px; padding: 12px; background: var(--bg-tertiary); border-radius: var(--radius); text-align: left;">
-            <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word; font-size: 12px;">{details}</pre>
+        <div style="margin-top: 24px; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius); text-align: left;">
+            <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word; font-size: 13px; color: var(--text-secondary);">{details}</pre>
         </div>"""
 
     request_id_html = ""
     if request_id:
         request_id_html = f"""
-        <div style="margin-top: 8px; color: var(--text-muted); font-size: 11px;">
+        <div style="margin-top: 16px; color: var(--text-muted); font-size: 13px;">
             Request ID: {request_id}
         </div>"""
 
     html = f"""
-<div style="display: flex; align-items: center; justify-content: center; min-height: 80vh; padding: 32px;">
-    <div style="text-align: center; max-width: 500px;">
-        <div style="font-size: 72px; margin-bottom: 16px;">{icon}</div>
-        <h1 style="font-size: 36px; margin-bottom: 8px; color: var(--text-primary);">{status_code}</h1>
-        <h2 style="font-size: 20px; margin-bottom: 16px; color: var(--text-secondary); font-weight: normal;">{title}</h2>
-        <p style="color: var(--text-secondary); margin-bottom: 24px; line-height: 1.6;">{message}</p>
+<div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 32px;">
+    <div style="text-align: center; max-width: 400px;">
+        <div style="font-size: 80px; margin-bottom: 24px;">{icon}</div>
+        <h1 style="font-size: 48px; font-weight: 700; margin-bottom: 8px; letter-spacing: -1px;">{status_code}</h1>
+        <h2 style="font-size: 20px; font-weight: 600; margin-bottom: 16px; letter-spacing: -0.4px;">{title}</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 32px; line-height: 1.5; font-size: 17px;">{message}</p>
         
         {details_html}
         {request_id_html}
         
-        <div style="margin-top: 32px; display: flex; justify-content: center; gap: 12px;">
-            <a href="/" class="btn">🏠 Go Home</a>
-            <button class="btn btn-outline" onclick="window.history.back()">← Go Back</button>
+        <div style="margin-top: 40px; display: flex; flex-direction: column; gap: 12px;">
+            <a href="/" class="btn" style="width: 100%;">Go Home</a>
+            <button class="btn btn-ghost" style="width: 100%;" onclick="window.history.back()">Go Back</button>
         </div>
     </div>
 </div>
@@ -88,7 +88,7 @@ def render_not_found(path: str) -> str:
     """
     return render_error(
         status_code=404,
-        message=f"The requested path <code>{path}</code> was not found on this server.",
+        message=f"The file <strong>{path}</strong> could not be found.",
         details=None,
     )
 
@@ -105,7 +105,7 @@ def render_forbidden(path: str) -> str:
     """
     return render_error(
         status_code=403,
-        message=f"You don't have permission to access <code>{path}</code>.",
+        message=f"You don't have permission to access <strong>{path}</strong>.",
         details=None,
     )
 
@@ -131,7 +131,7 @@ def render_internal_error(error: Exception, request_id: Optional[str] = None) ->
 
     return render_error(
         status_code=500,
-        message="An internal server error occurred. Please try again later.",
+        message="Something went wrong. Please try again later.",
         details=details,
         request_id=request_id,
     )
@@ -140,7 +140,7 @@ def render_internal_error(error: Exception, request_id: Optional[str] = None) ->
 def _get_error_icon(status_code: int) -> str:
     """Get icon for error status code."""
     icons = {
-        400: "❌",
+        400: "⚠️",
         401: "🔒",
         403: "🚫",
         404: "🔍",
@@ -153,7 +153,7 @@ def _get_error_icon(status_code: int) -> str:
         503: "🔧",
         504: "⏰",
     }
-    return icons.get(status_code, "❌")
+    return icons.get(status_code, "⚠️")
 
 
 def _get_error_title(status_code: int) -> str:
@@ -165,9 +165,9 @@ def _get_error_title(status_code: int) -> str:
         404: "Not Found",
         405: "Method Not Allowed",
         408: "Request Timeout",
-        413: "Payload Too Large",
+        413: "File Too Large",
         429: "Too Many Requests",
-        500: "Internal Server Error",
+        500: "Server Error",
         502: "Bad Gateway",
         503: "Service Unavailable",
         504: "Gateway Timeout",

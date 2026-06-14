@@ -1,5 +1,5 @@
 """
-Base HTML template with theme support and mobile-first design.
+Base HTML template with professional mobile-app design.
 """
 
 from typing import Dict, Optional
@@ -21,56 +21,65 @@ def get_head(title: str, theme: str = "dark") -> str:
 <html lang="en" data-theme="{theme}">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <meta name="description" content="Browser File Server">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#1e1e1e">
-    <title>{title} - File Server</title>
+    <meta name="theme-color" content="#000000">
+    <title>{title}</title>
     <style>
         :root {{
-            --bg-primary: #1e1e1e;
-            --bg-secondary: #252526;
-            --bg-tertiary: #2d2d2d;
-            --bg-hover: #2a2d2e;
-            --text-primary: #d4d4d4;
-            --text-secondary: #888;
-            --text-muted: #666;
-            --accent: #7aa2f7;
-            --accent-hover: #89b4fa;
-            --success: #16825d;
-            --success-hover: #1a9c6d;
-            --danger: #a1260d;
-            --danger-hover: #c4350d;
-            --warning: #d19a66;
-            --info: #61afef;
-            --border: #3c3c3c;
-            --shadow: rgba(0, 0, 0, 0.3);
-            --radius: 8px;
-            --radius-lg: 12px;
+            --bg-primary: #000000;
+            --bg-secondary: #1c1c1e;
+            --bg-tertiary: #2c2c2e;
+            --bg-card: #1c1c1e;
+            --bg-hover: rgba(255, 255, 255, 0.05);
+            --bg-active: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.6);
+            --text-muted: rgba(255, 255, 255, 0.3);
+            --accent: #0a84ff;
+            --accent-hover: #409cff;
+            --accent-bg: rgba(10, 132, 255, 0.15);
+            --success: #30d158;
+            --success-bg: rgba(48, 209, 88, 0.15);
+            --danger: #ff453a;
+            --danger-bg: rgba(255, 69, 58, 0.15);
+            --warning: #ff9f0a;
+            --warning-bg: rgba(255, 159, 10, 0.15);
+            --border: rgba(255, 255, 255, 0.08);
+            --shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            --radius: 12px;
+            --radius-sm: 8px;
+            --radius-lg: 16px;
             --transition: 0.2s ease;
             --safe-bottom: env(safe-area-inset-bottom, 0px);
             --safe-top: env(safe-area-inset-top, 0px);
+            --safe-left: env(safe-area-inset-left, 0px);
+            --safe-right: env(safe-area-inset-right, 0px);
         }}
 
         [data-theme="light"] {{
-            --bg-primary: #ffffff;
-            --bg-secondary: #f8f9fa;
-            --bg-tertiary: #e9ecef;
-            --bg-hover: #f1f3f5;
-            --text-primary: #212529;
-            --text-secondary: #6c757d;
-            --text-muted: #adb5bd;
-            --accent: #3b82f6;
-            --accent-hover: #2563eb;
-            --success: #10b981;
-            --success-hover: #059669;
-            --danger: #ef4444;
-            --danger-hover: #dc2626;
-            --warning: #f59e0b;
-            --info: #3b82f6;
-            --border: #dee2e6;
-            --shadow: rgba(0, 0, 0, 0.08);
+            --bg-primary: #f2f2f7;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #e5e5ea;
+            --bg-card: #ffffff;
+            --bg-hover: rgba(0, 0, 0, 0.03);
+            --bg-active: rgba(0, 0, 0, 0.06);
+            --text-primary: #000000;
+            --text-secondary: rgba(0, 0, 0, 0.55);
+            --text-muted: rgba(0, 0, 0, 0.3);
+            --accent: #007aff;
+            --accent-hover: #0056b3;
+            --accent-bg: rgba(0, 122, 255, 0.1);
+            --success: #34c759;
+            --success-bg: rgba(52, 199, 89, 0.1);
+            --danger: #ff3b30;
+            --danger-bg: rgba(255, 59, 48, 0.1);
+            --warning: #ff9500;
+            --warning-bg: rgba(255, 149, 0, 0.1);
+            --border: rgba(0, 0, 0, 0.08);
+            --shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
         }}
 
         * {{
@@ -86,24 +95,26 @@ def get_head(title: str, theme: str = "dark") -> str:
         }}
 
         body {{
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            font-size: 16px;
-            line-height: 1.5;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif;
+            font-size: 17px;
+            line-height: 1.47;
             background: var(--bg-primary);
             color: var(--text-primary);
             min-height: 100%;
             padding-bottom: calc(80px + var(--safe-bottom));
             -webkit-text-size-adjust: 100%;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }}
 
         a {{
             color: var(--accent);
             text-decoration: none;
-            transition: color var(--transition);
+            transition: opacity var(--transition);
         }}
 
         a:hover, a:active {{
-            color: var(--accent-hover);
+            opacity: 0.7;
         }}
 
         .container {{
@@ -112,44 +123,48 @@ def get_head(title: str, theme: str = "dark") -> str:
             padding: 0 16px;
         }}
 
-        /* Toolbar - Fixed at top */
-        .toolbar {{
+        /* Header - iOS style */
+        .header {{
             background: var(--bg-secondary);
-            border-bottom: 1px solid var(--border);
-            padding: 12px 0;
+            border-bottom: 0.5px solid var(--border);
             position: sticky;
             top: 0;
             z-index: 100;
-            padding-top: calc(12px + var(--safe-top));
+            padding-top: var(--safe-top);
         }}
 
-        .toolbar-content {{
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
+        .header-content {{
+            padding: 12px 16px;
         }}
 
-        .toolbar-row {{
+        .header-top {{
             display: flex;
             align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
+            justify-content: space-between;
+            margin-bottom: 12px;
         }}
 
-        /* Breadcrumb */
+        .header-title {{
+            font-size: 17px;
+            font-weight: 600;
+            letter-spacing: -0.4px;
+        }}
+
+        .header-actions {{
+            display: flex;
+            gap: 8px;
+        }}
+
         .breadcrumb {{
             display: flex;
             align-items: center;
             gap: 4px;
-            font-family: 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
-            font-size: 14px;
+            font-size: 15px;
             color: var(--text-secondary);
-            flex-wrap: wrap;
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
             scrollbar-width: none;
-            flex: 1;
-            min-width: 0;
+            padding: 4px 0;
         }}
 
         .breadcrumb::-webkit-scrollbar {{
@@ -159,6 +174,7 @@ def get_head(title: str, theme: str = "dark") -> str:
         .breadcrumb a {{
             color: var(--accent);
             white-space: nowrap;
+            padding: 4px 0;
         }}
 
         .breadcrumb .separator {{
@@ -171,19 +187,61 @@ def get_head(title: str, theme: str = "dark") -> str:
             white-space: nowrap;
         }}
 
-        /* Buttons - Touch friendly */
+        /* Search Bar - iOS style */
+        .search-bar {{
+            padding: 0 16px 12px;
+        }}
+
+        .search-input-wrapper {{
+            position: relative;
+            display: flex;
+            align-items: center;
+        }}
+
+        .search-icon {{
+            position: absolute;
+            left: 12px;
+            color: var(--text-muted);
+            font-size: 15px;
+            pointer-events: none;
+        }}
+
+        .search-input {{
+            width: 100%;
+            padding: 10px 12px 10px 36px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: none;
+            border-radius: 10px;
+            font-size: 17px;
+            font-family: inherit;
+            -webkit-appearance: none;
+            appearance: none;
+        }}
+
+        .search-input::placeholder {{
+            color: var(--text-muted);
+        }}
+
+        .search-input:focus {{
+            outline: none;
+            background: var(--bg-tertiary);
+        }}
+
+        /* Buttons - iOS style */
         .btn {{
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 6px;
-            padding: 10px 16px;
+            padding: 10px 20px;
             background: var(--accent);
             color: white;
             border: none;
-            border-radius: var(--radius);
-            font-size: 15px;
-            font-weight: 500;
+            border-radius: 10px;
+            font-size: 17px;
+            font-weight: 600;
+            font-family: inherit;
             cursor: pointer;
             transition: all var(--transition);
             white-space: nowrap;
@@ -192,130 +250,201 @@ def get_head(title: str, theme: str = "dark") -> str:
             touch-action: manipulation;
             user-select: none;
             -webkit-user-select: none;
+            letter-spacing: -0.4px;
         }}
 
         .btn:hover, .btn:active {{
-            background: var(--accent-hover);
+            opacity: 0.85;
             color: white;
             text-decoration: none;
         }}
 
         .btn:active {{
-            transform: scale(0.98);
+            transform: scale(0.97);
         }}
 
         .btn-sm {{
-            padding: 8px 12px;
-            font-size: 14px;
+            padding: 8px 16px;
+            font-size: 15px;
             min-height: 36px;
+            border-radius: 8px;
         }}
 
-        .btn-success {{
-            background: var(--success);
-        }}
-
-        .btn-success:hover, .btn-success:active {{
-            background: var(--success-hover);
-        }}
-
-        .btn-danger {{
-            background: var(--danger);
-        }}
-
-        .btn-danger:hover, .btn-danger:active {{
-            background: var(--danger-hover);
-        }}
-
-        .btn-outline {{
+        .btn-icon {{
+            width: 44px;
+            height: 44px;
+            padding: 0;
+            border-radius: 50%;
             background: transparent;
-            border: 1px solid var(--border);
             color: var(--text-primary);
         }}
 
-        .btn-outline:hover, .btn-outline:active {{
+        .btn-icon:hover, .btn-icon:active {{
             background: var(--bg-hover);
-            border-color: var(--accent);
+            opacity: 1;
+        }}
+
+        .btn-ghost {{
+            background: transparent;
             color: var(--accent);
         }}
 
-        /* Input - Mobile friendly */
-        input[type="text"],
-        input[type="password"],
-        input[type="search"],
-        textarea,
-        select {{
-            padding: 10px 14px;
+        .btn-ghost:hover, .btn-ghost:active {{
+            background: var(--accent-bg);
+            opacity: 1;
+        }}
+
+        .btn-danger {{
+            background: transparent;
+            color: var(--danger);
+        }}
+
+        .btn-danger:hover, .btn-danger:active {{
+            background: var(--danger-bg);
+            opacity: 1;
+        }}
+
+        /* Toolbar Actions */
+        .toolbar {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }}
+
+        .toolbar::-webkit-scrollbar {{
+            display: none;
+        }}
+
+        .toolbar-spacer {{
+            flex: 1;
+        }}
+
+        /* Segmented Control - iOS style */
+        .segmented-control {{
+            display: flex;
             background: var(--bg-tertiary);
-            color: var(--text-primary);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            font-size: 16px;
+            border-radius: 8px;
+            padding: 2px;
+            gap: 2px;
+        }}
+
+        .segmented-btn {{
+            padding: 6px 12px;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
             font-family: inherit;
-            transition: all var(--transition);
-            width: 100%;
-            min-height: 44px;
-        }}
-
-        input[type="text"]:focus,
-        input[type="password"]:focus,
-        input[type="search"]:focus,
-        textarea:focus,
-        select:focus {{
-            outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(122, 162, 247, 0.2);
-        }}
-
-        input[type="file"] {{
-            color: var(--text-primary);
-        }}
-
-        /* Checkbox - Larger for mobile */
-        input[type="checkbox"] {{
-            width: 20px;
-            height: 20px;
             cursor: pointer;
-            accent-color: var(--accent);
-            flex-shrink: 0;
+            transition: all var(--transition);
+            white-space: nowrap;
         }}
 
-        /* File list */
+        .segmented-btn.active {{
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }}
+
+        /* File List - iOS style */
         .file-list {{
             list-style: none;
-            margin: 12px 0;
+        }}
+
+        .file-section {{
+            margin: 8px 0;
+        }}
+
+        .file-section-header {{
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }}
+
+        .file-group {{
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            margin: 0 16px;
+            overflow: hidden;
         }}
 
         .file-item {{
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 14px 16px;
-            border-bottom: 1px solid var(--border);
+            padding: 12px 16px;
+            background: var(--bg-card);
             transition: background var(--transition);
-            min-height: 60px;
+            cursor: pointer;
+            position: relative;
         }}
 
-        .file-item:hover, .file-item:active {{
-            background: var(--bg-hover);
+        .file-item:not(:last-child)::after {{
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 60px;
+            right: 0;
+            height: 0.5px;
+            background: var(--border);
         }}
 
-        .file-item:first-child {{
-            border-top: 1px solid var(--border);
+        .file-item:active {{
+            background: var(--bg-active);
+        }}
+
+        .file-item.selected {{
+            background: var(--accent-bg);
         }}
 
         .file-checkbox {{
             width: 22px;
             height: 22px;
+            border-radius: 50%;
+            border: 2px solid var(--text-muted);
             cursor: pointer;
-            accent-color: var(--accent);
             flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition);
+        }}
+
+        .file-checkbox.checked {{
+            background: var(--accent);
+            border-color: var(--accent);
+        }}
+
+        .file-checkbox.checked::after {{
+            content: '✓';
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
         }}
 
         .file-icon {{
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             font-size: 24px;
-            width: 32px;
-            text-align: center;
             flex-shrink: 0;
+            background: var(--bg-tertiary);
+        }}
+
+        .file-icon.folder {{
+            background: var(--accent-bg);
         }}
 
         .file-info {{
@@ -324,126 +453,266 @@ def get_head(title: str, theme: str = "dark") -> str:
         }}
 
         .file-name {{
-            font-family: 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
-            font-size: 15px;
-            word-break: break-all;
-            line-height: 1.3;
+            font-size: 17px;
+            font-weight: 400;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            letter-spacing: -0.4px;
         }}
 
         .file-name a {{
-            color: var(--text-primary);
+            color: inherit;
             display: block;
-            padding: 2px 0;
-        }}
-
-        .file-name a:hover, .file-name a:active {{
-            color: var(--accent);
         }}
 
         .file-name.is-dir a {{
-            color: #c586c0;
+            color: var(--accent);
         }}
 
         .file-meta {{
             display: flex;
-            gap: 12px;
-            color: var(--text-secondary);
+            gap: 8px;
             font-size: 13px;
-            margin-top: 4px;
-            flex-wrap: wrap;
+            color: var(--text-secondary);
+            margin-top: 2px;
         }}
 
-        .file-actions {{
-            display: flex;
-            gap: 6px;
-            flex-shrink: 0;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-        }}
-
-        /* Flash messages */
-        .flash {{
-            padding: 14px 16px;
-            border-radius: var(--radius);
-            margin: 12px 0;
+        .file-action-btn {{
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 18px;
+            cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 8px;
+            justify-content: center;
+            transition: all var(--transition);
+            flex-shrink: 0;
+        }}
+
+        .file-action-btn:active {{
+            background: var(--bg-active);
+        }}
+
+        /* Flash Messages */
+        .flash {{
+            padding: 12px 16px;
+            border-radius: var(--radius);
+            margin: 12px 16px;
             font-size: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }}
 
         .flash-success {{
-            background: var(--success);
-            color: white;
+            background: var(--success-bg);
+            color: var(--success);
         }}
 
         .flash-error {{
-            background: var(--danger);
-            color: white;
+            background: var(--danger-bg);
+            color: var(--danger);
         }}
 
         .flash-warning {{
-            background: var(--warning);
-            color: white;
-        }}
-
-        .flash-info {{
-            background: var(--info);
-            color: white;
+            background: var(--warning-bg);
+            color: var(--warning);
         }}
 
         /* Editor */
         .editor-container {{
-            padding: 12px;
+            padding: 16px;
         }}
 
         .editor-textarea {{
             width: 100%;
             min-height: 60vh;
-            background: var(--bg-primary);
+            background: var(--bg-secondary);
             color: var(--text-primary);
-            border: 1px solid var(--border);
+            border: none;
             border-radius: var(--radius);
-            font-family: 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
-            font-size: 14px;
+            font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+            font-size: 15px;
             line-height: 1.6;
-            padding: 14px;
+            padding: 16px;
             resize: vertical;
             tab-size: 4;
+            -webkit-appearance: none;
         }}
 
         .editor-textarea:focus {{
             outline: none;
-            border-color: var(--accent);
         }}
 
-        /* Upload zone */
+        /* Upload Zone */
         .upload-zone {{
-            padding: 24px;
-            background: var(--bg-secondary);
+            padding: 32px 16px;
+            margin: 12px 16px;
+            background: var(--bg-card);
             border: 2px dashed var(--border);
             border-radius: var(--radius-lg);
             text-align: center;
             transition: all var(--transition);
-            margin: 12px 0;
             cursor: pointer;
         }}
 
         .upload-zone.dragover {{
             border-color: var(--accent);
-            background: rgba(122, 162, 247, 0.1);
+            background: var(--accent-bg);
+        }}
+
+        .upload-zone-icon {{
+            font-size: 48px;
+            margin-bottom: 12px;
         }}
 
         .upload-zone-text {{
             color: var(--text-secondary);
-            margin-bottom: 12px;
             font-size: 15px;
         }}
 
-        /* Toast notifications */
+        .upload-zone-text strong {{
+            color: var(--text-primary);
+        }}
+
+        /* Bottom Sheet - iOS style */
+        .bottom-sheet {{
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+            padding: 16px;
+            padding-bottom: calc(16px + var(--safe-bottom));
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+            z-index: 200;
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+        }}
+
+        .bottom-sheet.active {{
+            transform: translateY(0);
+        }}
+
+        .bottom-sheet-handle {{
+            width: 36px;
+            height: 4px;
+            background: var(--text-muted);
+            border-radius: 2px;
+            margin: 0 auto 16px;
+        }}
+
+        .bottom-sheet-title {{
+            font-size: 17px;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 16px;
+        }}
+
+        .bottom-sheet-actions {{
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }}
+
+        .bottom-sheet-btn {{
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 16px;
+            background: var(--bg-card);
+            border: none;
+            border-radius: var(--radius);
+            color: var(--text-primary);
+            font-size: 17px;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background var(--transition);
+            width: 100%;
+            text-align: left;
+        }}
+
+        .bottom-sheet-btn:active {{
+            background: var(--bg-active);
+        }}
+
+        .bottom-sheet-btn.danger {{
+            color: var(--danger);
+        }}
+
+        .bottom-sheet-btn-icon {{
+            font-size: 24px;
+            width: 32px;
+            text-align: center;
+        }}
+
+        /* Batch Actions Bar */
+        .batch-bar {{
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-secondary);
+            border-top: 0.5px solid var(--border);
+            padding: 12px 16px;
+            padding-bottom: calc(12px + var(--safe-bottom));
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 150;
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+        }}
+
+        .batch-bar.active {{
+            transform: translateY(0);
+        }}
+
+        .batch-info {{
+            font-size: 15px;
+            color: var(--text-secondary);
+        }}
+
+        .batch-actions {{
+            display: flex;
+            gap: 8px;
+        }}
+
+        /* Empty State */
+        .empty-state {{
+            text-align: center;
+            padding: 64px 32px;
+        }}
+
+        .empty-state-icon {{
+            font-size: 64px;
+            margin-bottom: 16px;
+        }}
+
+        .empty-state-title {{
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }}
+
+        .empty-state-text {{
+            font-size: 15px;
+            color: var(--text-secondary);
+            max-width: 280px;
+            margin: 0 auto;
+        }}
+
+        /* Toast Notifications */
         .toast-container {{
             position: fixed;
-            bottom: calc(20px + var(--safe-bottom));
+            top: calc(16px + var(--safe-top));
             left: 16px;
             right: 16px;
             z-index: 1000;
@@ -456,17 +725,27 @@ def get_head(title: str, theme: str = "dark") -> str:
         .toast {{
             padding: 14px 16px;
             background: var(--bg-secondary);
-            border: 1px solid var(--border);
             border-radius: var(--radius);
-            box-shadow: 0 4px 12px var(--shadow);
-            animation: slideUp 0.3s ease;
-            pointer-events: auto;
+            box-shadow: var(--shadow);
             font-size: 15px;
+            pointer-events: auto;
+            animation: slideDown 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }}
 
-        @keyframes slideUp {{
+        .toast-success {{
+            border-left: 4px solid var(--success);
+        }}
+
+        .toast-error {{
+            border-left: 4px solid var(--danger);
+        }}
+
+        @keyframes slideDown {{
             from {{
-                transform: translateY(100%);
+                transform: translateY(-100%);
                 opacity: 0;
             }}
             to {{
@@ -475,9 +754,49 @@ def get_head(title: str, theme: str = "dark") -> str:
             }}
         }}
 
+        /* Footer */
+        .footer {{
+            background: var(--bg-secondary);
+            border-top: 0.5px solid var(--border);
+            padding: 10px 16px;
+            padding-bottom: calc(10px + var(--safe-bottom));
+            color: var(--text-muted);
+            font-size: 13px;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 50;
+        }}
+
+        .footer-content {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }}
+
         /* Preview */
         .preview-container {{
-            padding: 12px;
+            padding: 16px;
+        }}
+
+        .preview-header {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }}
+
+        .preview-title {{
+            font-size: 20px;
+            font-weight: 600;
+            letter-spacing: -0.4px;
+        }}
+
+        .preview-subtitle {{
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 4px;
         }}
 
         .preview-image {{
@@ -492,16 +811,16 @@ def get_head(title: str, theme: str = "dark") -> str:
         .preview-audio {{
             width: 100%;
             max-width: 100%;
+            border-radius: var(--radius);
         }}
 
         .preview-code {{
             background: var(--bg-secondary);
-            border: 1px solid var(--border);
             border-radius: var(--radius);
-            padding: 14px;
+            padding: 16px;
             overflow-x: auto;
-            font-family: 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
-            font-size: 14px;
+            font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+            font-size: 15px;
             line-height: 1.6;
             white-space: pre-wrap;
             word-wrap: break-word;
@@ -521,267 +840,137 @@ def get_head(title: str, theme: str = "dark") -> str:
             justify-content: center;
             z-index: 1000;
             padding: 16px;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }}
+
+        .modal-overlay.active {{
+            opacity: 1;
+            visibility: visible;
         }}
 
         .modal {{
             background: var(--bg-secondary);
             border-radius: var(--radius-lg) var(--radius-lg) 0 0;
             padding: 24px;
+            padding-bottom: calc(24px + var(--safe-bottom));
             width: 100%;
             max-width: 500px;
             box-shadow: 0 -4px 20px var(--shadow);
             max-height: 80vh;
             overflow-y: auto;
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+        }}
+
+        .modal-overlay.active .modal {{
+            transform: translateY(0);
         }}
 
         .modal-title {{
-            font-size: 18px;
+            font-size: 20px;
             font-weight: 600;
             margin-bottom: 16px;
+            text-align: center;
         }}
 
         .modal-actions {{
             display: flex;
-            justify-content: flex-end;
+            flex-direction: column;
             gap: 8px;
             margin-top: 24px;
         }}
 
-        /* Footer - Fixed at bottom for mobile */
-        .footer {{
-            background: var(--bg-secondary);
-            border-top: 1px solid var(--border);
-            padding: 12px 0;
-            padding-bottom: calc(12px + var(--safe-bottom));
-            color: var(--text-secondary);
-            font-size: 12px;
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            z-index: 50;
-        }}
-
-        .footer-content {{
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 8px;
-        }}
-
         /* Responsive - Mobile First */
-        @media (max-width: 768px) {{
-            body {{
-                font-size: 16px;
+        @media (min-width: 769px) {{
+            .file-group {{
+                margin: 0;
             }}
 
-            .toolbar-row {{
-                flex-direction: column;
-                align-items: stretch;
+            .upload-zone {{
+                margin: 12px 0;
             }}
 
-            .toolbar-row .btn,
-            .toolbar-row .btn-sm {{
-                width: 100%;
-                justify-content: center;
+            .flash {{
+                margin: 12px 0;
             }}
 
-            .search-form {{
-                width: 100%;
-                max-width: none;
-            }}
-
-            .search-form .btn {{
-                flex-shrink: 0;
-            }}
-
-            .file-item {{
-                flex-wrap: wrap;
-                padding: 12px;
-                gap: 8px;
-            }}
-
-            .file-checkbox {{
-                order: -1;
-            }}
-
-            .file-icon {{
-                font-size: 28px;
-                width: 36px;
-            }}
-
-            .file-info {{
-                flex: 1;
-                min-width: calc(100% - 80px);
-            }}
-
-            .file-actions {{
-                width: 100%;
-                justify-content: flex-start;
-                padding-left: 48px;
-                gap: 8px;
-            }}
-
-            .file-actions .btn {{
-                flex: 1;
-                min-width: 0;
-                justify-content: center;
-                font-size: 13px;
-                padding: 8px 10px;
-            }}
-
-            .filter-bar {{
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-                scrollbar-width: none;
-                flex-wrap: nowrap;
-                padding-bottom: 4px;
-            }}
-
-            .filter-bar::-webkit-scrollbar {{
-                display: none;
-            }}
-
-            .filter-btn {{
-                white-space: nowrap;
-                flex-shrink: 0;
-            }}
-
-            .modal {{
-                border-radius: var(--radius-lg);
-                margin: auto;
-            }}
-
-            .modal-overlay {{
-                align-items: center;
+            .file-item:hover {{
+                background: var(--bg-hover);
             }}
         }}
 
         /* Tablet */
         @media (min-width: 769px) and (max-width: 1024px) {{
-            .file-actions .btn {{
-                font-size: 13px;
-                padding: 6px 10px;
+            .file-action-btn {{
+                opacity: 1;
             }}
         }}
 
-        /* Theme toggle */
+        /* Theme Toggle */
         .theme-toggle {{
-            background: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: transparent;
             border: none;
             color: var(--text-primary);
+            font-size: 20px;
             cursor: pointer;
-            font-size: 24px;
-            padding: 8px;
-            transition: transform var(--transition);
-            min-width: 44px;
-            min-height: 44px;
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: background var(--transition);
         }}
 
         .theme-toggle:hover, .theme-toggle:active {{
-            transform: scale(1.1);
+            background: var(--bg-hover);
         }}
 
-        /* Search */
-        .search-form {{
-            display: flex;
-            gap: 8px;
-            flex: 1;
-            max-width: 400px;
-        }}
-
-        .search-input {{
-            flex: 1;
-        }}
-
-        /* Filter */
-        .filter-bar {{
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            margin: 12px 0;
-        }}
-
-        .filter-btn {{
-            padding: 8px 14px;
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            color: var(--text-primary);
-            cursor: pointer;
-            font-size: 14px;
-            transition: all var(--transition);
-            min-height: 40px;
-        }}
-
-        .filter-btn:hover, .filter-btn.active {{
-            background: var(--accent);
-            color: white;
-            border-color: var(--accent);
-        }}
-
-        /* Batch actions */
-        .batch-actions {{
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
-        }}
-
-        .selected-count {{
-            color: var(--text-secondary);
-            font-size: 13px;
-        }}
-
-        /* Hidden */
-        .hidden {{
-            display: none !important;
-        }}
-
-        /* Keyboard shortcuts hint */
-        .shortcuts-hint {{
-            color: var(--text-muted);
-            font-size: 11px;
+        /* Checkbox - iOS style */
+        input[type="checkbox"] {{
             display: none;
         }}
 
-        @media (min-width: 769px) {{
-            .shortcuts-hint {{
-                display: inline;
-            }}
+        .checkbox-wrapper {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            padding: 8px 0;
         }}
 
-        .kbd {{
-            display: inline-block;
-            padding: 2px 6px;
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border);
-            border-radius: 3px;
-            font-family: monospace;
-            font-size: 11px;
+        .checkbox-indicator {{
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 2px solid var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition);
+            flex-shrink: 0;
         }}
 
-        /* Empty state */
-        .empty-state {{
-            text-align: center;
-            padding: 48px 16px;
+        .checkbox-wrapper.checked .checkbox-indicator {{
+            background: var(--accent);
+            border-color: var(--accent);
+        }}
+
+        .checkbox-wrapper.checked .checkbox-indicator::after {{
+            content: '✓';
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+        }}
+
+        .checkbox-label {{
+            font-size: 15px;
             color: var(--text-secondary);
         }}
 
-        .empty-state-icon {{
-            font-size: 48px;
-            margin-bottom: 16px;
-        }}
-
-        .empty-state-text {{
-            font-size: 16px;
-        }}
-
-        /* Loading state */
+        /* Loading State */
         .loading {{
             display: flex;
             align-items: center;
@@ -805,6 +994,91 @@ def get_head(title: str, theme: str = "dark") -> str:
                 transform: rotate(360deg);
             }}
         }}
+
+        /* Action Sheet */
+        .action-sheet {{
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+            padding: 8px;
+            padding-bottom: calc(8px + var(--safe-bottom));
+            z-index: 300;
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+        }}
+
+        .action-sheet.active {{
+            transform: translateY(0);
+        }}
+
+        .action-sheet-group {{
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            overflow: hidden;
+            margin-bottom: 8px;
+        }}
+
+        .action-sheet-item {{
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 16px;
+            background: transparent;
+            border: none;
+            border-bottom: 0.5px solid var(--border);
+            color: var(--text-primary);
+            font-size: 17px;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background var(--transition);
+            width: 100%;
+        }}
+
+        .action-sheet-item:last-child {{
+            border-bottom: none;
+        }}
+
+        .action-sheet-item:active {{
+            background: var(--bg-active);
+        }}
+
+        .action-sheet-item.destructive {{
+            color: var(--danger);
+        }}
+
+        .action-sheet-cancel {{
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 16px;
+            border: none;
+            color: var(--accent);
+            font-size: 17px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            width: 100%;
+        }}
+
+        /* Utility */
+        .hidden {{
+            display: none !important;
+        }}
+
+        .text-center {{
+            text-align: center;
+        }}
+
+        .mt-8 {{
+            margin-top: 8px;
+        }}
+
+        .mb-8 {{
+            margin-bottom: 8px;
+        }}
     </style>
 </head>"""
 
@@ -824,10 +1098,6 @@ def get_footer(version: str = "2.0.0") -> str:
     <div class="container">
         <div class="footer-content">
             <span>File Server v{version}</span>
-            <span class="shortcuts-hint">
-                <kbd>Ctrl</kbd>+<kbd>S</kbd> Save | 
-                <kbd>/</kbd> Search
-            </span>
         </div>
     </div>
 </footer>
@@ -852,7 +1122,7 @@ function toggleTheme() {{
     // Update meta theme color
     const metaTheme = document.querySelector('meta[name="theme-color"]');
     if (metaTheme) {{
-        metaTheme.content = next === 'light' ? '#f8f9fa' : '#1e1e1e';
+        metaTheme.content = next === 'light' ? '#f2f2f7' : '#000000';
     }}
 }}
 
@@ -866,7 +1136,7 @@ function showToast(message, type = 'info', duration = 3000) {{
     
     setTimeout(() => {{
         toast.style.opacity = '0';
-        toast.style.transform = 'translateY(100%)';
+        toast.style.transform = 'translateY(-100%)';
         toast.style.transition = 'all 0.3s ease';
         setTimeout(() => toast.remove(), 300);
     }}, duration);
@@ -898,44 +1168,6 @@ document.addEventListener('keydown', function(e) {{
     }}
 }});
 
-// Drag and drop upload
-const uploadZone = document.querySelector('.upload-zone');
-if (uploadZone) {{
-    ['dragenter', 'dragover'].forEach(eventName => {{
-        uploadZone.addEventListener(eventName, e => {{
-            e.preventDefault();
-            e.stopPropagation();
-            uploadZone.classList.add('dragover');
-        }});
-    }});
-    
-    ['dragleave', 'drop'].forEach(eventName => {{
-        uploadZone.addEventListener(eventName, e => {{
-            e.preventDefault();
-            e.stopPropagation();
-            uploadZone.classList.remove('dragover');
-        }});
-    }});
-    
-    uploadZone.addEventListener('drop', e => {{
-        const input = uploadZone.querySelector('input[type="file"]');
-        if (input) {{
-            input.files = e.dataTransfer.files;
-            input.dispatchEvent(new Event('change'));
-        }}
-    }});
-    
-    // Click to upload on mobile
-    uploadZone.addEventListener('click', e => {{
-        if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT') {{
-            const input = uploadZone.querySelector('input[type="file"]');
-            if (input) {{
-                input.click();
-            }}
-        }}
-    }});
-}}
-
 // Prevent double tap zoom on iOS
 document.addEventListener('touchend', e => {{
     const now = Date.now();
@@ -944,6 +1176,31 @@ document.addEventListener('touchend', e => {{
     }}
     window.lastTouchEnd = now;
 }}, false);
+
+// Action sheet management
+let currentActionSheet = null;
+
+function showActionSheet(id) {{
+    const sheet = document.getElementById(id);
+    if (sheet) {{
+        sheet.classList.add('active');
+        currentActionSheet = sheet;
+    }}
+}}
+
+function hideActionSheet() {{
+    if (currentActionSheet) {{
+        currentActionSheet.classList.remove('active');
+        currentActionSheet = null;
+    }}
+}}
+
+// Close action sheet on backdrop click
+document.addEventListener('click', function(e) {{
+    if (currentActionSheet && !currentActionSheet.contains(e.target)) {{
+        hideActionSheet();
+    }}
+}});
 </script>
 </body>
 </html>"""

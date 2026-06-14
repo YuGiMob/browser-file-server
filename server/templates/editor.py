@@ -1,5 +1,5 @@
 """
-File editor template.
+File editor template with professional mobile-app design.
 """
 
 from urllib.parse import quote
@@ -36,21 +36,22 @@ def render_editor(
     language_hint = _get_language_hint(ext)
 
     read_only_attr = "readonly" if read_only else ""
-    read_only_class = "read-only" if read_only else ""
 
     html = f"""
-<div class="toolbar">
-    <div class="container">
-        <div class="toolbar-row">
-            <a href="/?p={quote(_get_parent_path(file_path))}" class="btn btn-outline btn-sm">← Back</a>
-            <span class="breadcrumb">
-                <a href="/">/</a>
-                {_build_path_breadcrumb(file_path)}
-            </span>
-            <div style="flex: 1;"></div>
-            <a href="/?p={encoded_path}" class="btn btn-sm btn-outline">👁️ View</a>
-            <a href="/raw?p={encoded_path}" class="btn btn-sm btn-outline">⬇️ Download</a>
-            <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌓</button>
+<div class="header">
+    <div class="header-content">
+        <div class="header-top">
+            <a href="/?p={quote(_get_parent_path(file_path))}" class="btn-icon">←</a>
+            <span class="header-title">{file_path.split('/')[-1]}</span>
+            <div class="header-actions">
+                <a href="/?p={encoded_path}" class="btn-icon" title="View">👁️</a>
+                <a href="/raw?p={encoded_path}" class="btn-icon" title="Download">⬇️</a>
+                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌓</button>
+            </div>
+        </div>
+        <div class="breadcrumb">
+            <a href="/">/</a>
+            {_build_path_breadcrumb(file_path)}
         </div>
     </div>
 </div>
@@ -64,24 +65,22 @@ def render_editor(
             
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                 <div style="display: flex; align-items: center; gap: 12px;">
-                    <span style="color: var(--text-secondary); font-size: 12px;">
+                    <span style="color: var(--text-secondary); font-size: 13px;">
                         {language_hint}
                     </span>
-                    <span id="line-count" style="color: var(--text-muted); font-size: 12px;"></span>
-                    <span id="char-count" style="color: var(--text-muted); font-size: 12px;"></span>
+                    <span id="line-count" style="color: var(--text-muted); font-size: 13px;"></span>
                 </div>
                 <div style="display: flex; gap: 8px;">
-                    <button type="button" class="btn btn-sm btn-outline" onclick="undoEdit()">↩️ Undo</button>
-                    <button type="button" class="btn btn-sm btn-outline" onclick="redoEdit()">↪️ Redo</button>
-                    <button type="button" class="btn btn-sm btn-outline" onclick="toggleWordWrap()">📝 Wrap</button>
-                    {'<button type="submit" class="btn btn-success">💾 Save</button>' if not read_only else ''}
+                    <button type="button" class="btn btn-sm btn-ghost" onclick="undoEdit()">↩️</button>
+                    <button type="button" class="btn btn-sm btn-ghost" onclick="redoEdit()">↪️</button>
+                    {'<button type="submit" class="btn btn-sm">Save</button>' if not read_only else ''}
                 </div>
             </div>
             
             <textarea 
                 name="content" 
                 id="editor"
-                class="editor-textarea {read_only_class}"
+                class="editor-textarea"
                 spellcheck="false"
                 {read_only_attr}
                 oninput="updateCounts()"
@@ -89,12 +88,10 @@ def render_editor(
             >{_escape_html(content)}</textarea>
             
             <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
-                <div style="display: flex; gap: 16px; color: var(--text-muted); font-size: 12px;">
-                    <span>💡 Press <kbd>Ctrl</kbd>+<kbd>S</kbd> to save</span>
-                    <span>💡 Press <kbd>Tab</kbd> to indent</span>
-                    <span>💡 Press <kbd>Shift</kbd>+<kbd>Tab</kbd> to unindent</span>
+                <div style="color: var(--text-muted); font-size: 13px;">
+                    <span id="char-count"></span>
                 </div>
-                <div id="save-status" style="color: var(--text-muted); font-size: 12px;"></div>
+                <div id="save-status" style="color: var(--text-muted); font-size: 13px;"></div>
             </div>
         </form>
     </div>
@@ -106,13 +103,13 @@ let undoStack = [];
 let redoStack = [];
 let lastContent = editor.value;
 
-// Update line and character counts
+// Update counts
 function updateCounts() {{
     const text = editor.value;
     const lines = text.split('\\n').length;
     const chars = text.length;
-    document.getElementById('line-count').textContent = `Lines: ${{lines}}`;
-    document.getElementById('char-count').textContent = `Characters: ${{chars}}`;
+    document.getElementById('line-count').textContent = `${{lines}} lines`;
+    document.getElementById('char-count').textContent = `${{chars}} chars`;
 }}
 
 // Handle tab key
@@ -165,14 +162,6 @@ editor.addEventListener('input', function() {{
         lastContent = editor.value;
     }}
 }});
-
-// Word wrap toggle
-let wordWrap = true;
-function toggleWordWrap() {{
-    wordWrap = !wordWrap;
-    editor.style.whiteSpace = wordWrap ? 'pre-wrap' : 'pre';
-    editor.style.overflowX = wordWrap ? 'hidden' : 'auto';
-}}
 
 // Auto-save indicator
 let saveTimeout;
@@ -269,37 +258,23 @@ def _get_language_hint(ext: str) -> str:
         "htm": "HTML",
         "css": "CSS",
         "scss": "SCSS",
-        "sass": "Sass",
-        "less": "Less",
         "json": "JSON",
         "yaml": "YAML",
         "yml": "YAML",
         "xml": "XML",
         "toml": "TOML",
         "md": "Markdown",
-        "markdown": "Markdown",
         "sh": "Shell",
         "bash": "Bash",
-        "zsh": "Zsh",
-        "fish": "Fish",
         "sql": "SQL",
         "go": "Go",
         "rs": "Rust",
         "java": "Java",
-        "kt": "Kotlin",
-        "swift": "Swift",
         "c": "C",
         "cpp": "C++",
         "h": "C Header",
-        "hpp": "C++ Header",
         "cs": "C#",
         "rb": "Ruby",
         "php": "PHP",
-        "pl": "Perl",
-        "lua": "Lua",
-        "r": "R",
-        "vue": "Vue",
-        "svelte": "Svelte",
     }
-
-    return hints.get(ext, "Plain Text")
+    return hints.get(ext, "Text")

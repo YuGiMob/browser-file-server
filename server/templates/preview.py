@@ -1,5 +1,5 @@
 """
-File preview template.
+File preview template with professional mobile-app design.
 """
 
 from urllib.parse import quote
@@ -41,30 +41,30 @@ def render_preview(
     size_str = _format_size(file_size)
 
     html = f"""
-<div class="toolbar">
-    <div class="container">
-        <div class="toolbar-row">
-            <a href="/?p={quote(_get_parent_path(file_path))}" class="btn btn-outline btn-sm">← Back</a>
-            <span class="breadcrumb">
-                <a href="/">/</a>
-                {_build_path_breadcrumb(file_path)}
-            </span>
-            <div style="flex: 1;"></div>
-            <a href="/raw?p={encoded_path}" class="btn btn-sm btn-outline">⬇️ Download</a>
-            {'<a href="/?p=' + encoded_path + '&edit=1" class="btn btn-sm btn-outline">✏️ Edit</a>' if is_text else ''}
-            <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌓</button>
+<div class="header">
+    <div class="header-content">
+        <div class="header-top">
+            <a href="/?p={quote(_get_parent_path(file_path))}" class="btn-icon">←</a>
+            <span class="header-title">{file_name}</span>
+            <div class="header-actions">
+                <a href="/raw?p={encoded_path}" class="btn-icon" title="Download">⬇️</a>
+                {'<a href="/?p=' + encoded_path + '&edit=1" class="btn-icon" title="Edit">✏️</a>' if is_text else ''}
+                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌓</button>
+            </div>
+        </div>
+        <div class="breadcrumb">
+            <a href="/">/</a>
+            {_build_path_breadcrumb(file_path)}
         </div>
     </div>
 </div>
 
 <div class="container">
     <div class="preview-container">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div class="preview-header">
             <div>
-                <h2 style="margin: 0; font-size: 20px;">{file_name}</h2>
-                <div style="color: var(--text-secondary); font-size: 12px; margin-top: 4px;">
-                    {mime_type or 'Unknown type'} • {size_str}
-                </div>
+                <div class="preview-title">{file_name}</div>
+                <div class="preview-subtitle">{mime_type or 'Unknown type'} · {size_str}</div>
             </div>
         </div>
         
@@ -126,8 +126,8 @@ def _get_preview_content(
     # Audio preview
     if ext in ('.mp3', '.wav', '.ogg', '.flac', '.aac', '.m4a'):
         return f"""
-        <div style="padding: 32px; background: var(--bg-secondary); border-radius: var(--radius); text-align: center;">
-            <div style="font-size: 48px; margin-bottom: 16px;">🎵</div>
+        <div style="padding: 32px; background: var(--bg-card); border-radius: var(--radius); text-align: center;">
+            <div style="font-size: 64px; margin-bottom: 16px;">🎵</div>
             <audio controls style="width: 100%; max-width: 500px;">
                 <source src="/raw?p={encoded_path}" type="{mime_type}">
                 Your browser does not support the audio tag.
@@ -137,55 +137,34 @@ def _get_preview_content(
     # PDF preview
     if ext == '.pdf':
         return f"""
-        <div style="background: var(--bg-secondary); border-radius: var(--radius); overflow: hidden;">
+        <div style="background: var(--bg-card); border-radius: var(--radius); overflow: hidden;">
             <iframe src="/raw?p={encoded_path}" style="width: 100%; height: 80vh; border: none;"></iframe>
-        </div>"""
-
-    # Markdown preview
-    if ext in ('.md', '.markdown') and content:
-        # Simple markdown rendering (basic formatting)
-        rendered = _simple_markdown(content)
-        return f"""
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-            <div>
-                <h3 style="margin-bottom: 8px; color: var(--text-secondary);">Source</h3>
-                <pre class="preview-code" style="max-height: 80vh; overflow-y: auto;">{_escape_html(content)}</pre>
-            </div>
-            <div>
-                <h3 style="margin-bottom: 8px; color: var(--text-secondary);">Preview</h3>
-                <div class="preview-code markdown-preview" style="max-height: 80vh; overflow-y: auto;">
-                    {rendered}
-                </div>
-            </div>
         </div>"""
 
     # Text file preview
     if is_text and content:
-        # Add syntax highlighting class based on extension
-        lang_class = f"language-{_get_highlight_lang(ext)}" if ext else ""
         return f"""
         <div style="position: relative;">
-            <button class="btn btn-sm btn-outline" style="position: absolute; top: 8px; right: 8px;"
+            <button class="btn btn-sm btn-ghost" style="position: absolute; top: 8px; right: 8px;"
                     onclick="copyContent()">
                 📋 Copy
             </button>
-            <pre class="preview-code {lang_class}" id="code-content"
-                 style="max-height: 80vh; overflow-y: auto;">{_escape_html(content)}</pre>
+            <pre class="preview-code" id="code-content">{_escape_html(content)}</pre>
         </div>
         <script>
         function copyContent() {{
             const content = document.getElementById('code-content').textContent;
             navigator.clipboard.writeText(content).then(() => {{
-                showToast('Content copied to clipboard', 'success');
+                showToast('Copied to clipboard', 'success');
             }});
         }}
         </script>"""
 
     # Generic file info
     return f"""
-    <div style="padding: 32px; background: var(--bg-secondary); border-radius: var(--radius); text-align: center;">
-        <div style="font-size: 48px; margin-bottom: 16px;">📄</div>
-        <p style="color: var(--text-secondary); margin-bottom: 16px;">
+    <div style="padding: 48px 32px; background: var(--bg-card); border-radius: var(--radius); text-align: center;">
+        <div style="font-size: 64px; margin-bottom: 16px;">📄</div>
+        <p style="color: var(--text-secondary); margin-bottom: 24px;">
             Preview not available for this file type
         </p>
         <a href="/raw?p={encoded_path}" class="btn">
@@ -225,6 +204,7 @@ def _build_path_breadcrumb(path: str) -> str:
 
     for i, part in enumerate(parts):
         if i == len(parts) - 1:
+            # Last part (filename) - not a link
             html += f'<span class="separator">/</span><span class="current">{part}</span>'
         else:
             current += "/" + part if current else part
@@ -244,66 +224,3 @@ def _format_size(size: int) -> str:
             return f"{size:.1f} {unit}"
         size /= 1024
     return f"{size:.1f} PB"
-
-
-def _get_highlight_lang(ext: str) -> str:
-    """Get language for syntax highlighting."""
-    lang_map = {
-        ".py": "python",
-        ".js": "javascript",
-        ".ts": "typescript",
-        ".jsx": "jsx",
-        ".tsx": "tsx",
-        ".html": "html",
-        ".htm": "html",
-        ".css": "css",
-        ".scss": "scss",
-        ".json": "json",
-        ".yaml": "yaml",
-        ".yml": "yaml",
-        ".xml": "xml",
-        ".md": "markdown",
-        ".sh": "bash",
-        ".bash": "bash",
-        ".sql": "sql",
-        ".go": "go",
-        ".rs": "rust",
-        ".java": "java",
-        ".c": "c",
-        ".cpp": "cpp",
-        ".cs": "csharp",
-        ".rb": "ruby",
-        ".php": "php",
-    }
-    return lang_map.get(ext, "plaintext")
-
-
-def _simple_markdown(text: str) -> str:
-    """Simple markdown rendering."""
-    import re
-
-    # Escape HTML
-    text = _escape_html(text)
-
-    # Headers
-    text = re.sub(r'^### (.+)$', r'<h3>\1</h3>', text, flags=re.MULTILINE)
-    text = re.sub(r'^## (.+)$', r'<h2>\1</h2>', text, flags=re.MULTILINE)
-    text = re.sub(r'^# (.+)$', r'<h1>\1</h1>', text, flags=re.MULTILINE)
-
-    # Bold and italic
-    text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
-    text = re.sub(r'\*(.+?)\*', r'<em>\1</em>', text)
-
-    # Links
-    text = re.sub(r'\[(.+?)\]\((.+?)\)', r'<a href="\2">\1</a>', text)
-
-    # Code blocks
-    text = re.sub(r'```(\w*)\n(.*?)```', r'<pre><code class="language-\1">\2</code></pre>', text, flags=re.DOTALL)
-
-    # Inline code
-    text = re.sub(r'`(.+?)`', r'<code>\1</code>', text)
-
-    # Line breaks
-    text = text.replace('\n', '<br>')
-
-    return text
