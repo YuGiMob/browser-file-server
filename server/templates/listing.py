@@ -97,7 +97,6 @@ def render_listing(
             <div class="checkbox-indicator"></div>
             <span class="checkbox-label">Hidden</span>
         </label>
-        <button class="btn-icon" onclick="toggleSelectMode()" title="Select files">\u2611\ufe0f</button>
     </div>
 </div>
 
@@ -114,21 +113,19 @@ def render_listing(
     <div class="batch-actions">
         <button class="btn btn-sm btn-ghost" onclick="downloadSelected()">\U0001f4e6 ZIP</button>
         <button class="btn btn-sm btn-danger" onclick="deleteSelected()">\U0001f5d1\ufe0f Delete</button>
-        <button class="btn btn-sm btn-ghost" onclick="toggleSelectMode()">Cancel</button>
+        <button class="btn btn-sm btn-ghost" onclick="clearSelection()">Clear</button>
     </div>
 </div>
 
 <script>
-let selectMode = false;
 let selectedFiles = new Set();
 
-function toggleSelectMode() {{
-    selectMode = !selectMode;
+function clearSelection() {{
     selectedFiles.clear();
     updateBatchBar();
     
     document.querySelectorAll('.file-checkbox').forEach(cb => {{
-        cb.classList.toggle('hidden', !selectMode);
+        cb.classList.remove('checked');
     }});
     
     document.querySelectorAll('.file-item').forEach(item => {{
@@ -137,8 +134,6 @@ function toggleSelectMode() {{
 }}
 
 function toggleFileSelect(path, element) {{
-    if (!selectMode) return;
-    
     if (selectedFiles.has(path)) {{
         selectedFiles.delete(path);
         element.classList.remove('checked');
@@ -157,7 +152,7 @@ function updateBatchBar() {{
     const batchCount = document.getElementById('batch-count');
     const footer = document.querySelector('.footer');
     
-    if (selectMode && selectedFiles.size > 0) {{
+    if (selectedFiles.size > 0) {{
         batchBar.classList.add('active');
         if (footer) footer.classList.add('hidden-by-batch');
         batchCount.textContent = `${{selectedFiles.size}} selected`;
@@ -327,25 +322,23 @@ def _render_file_item(file_info: FileInfo, current_path: str, features: dict, cs
     
     icon_class = "file-icon folder" if file_info.is_dir else "file-icon"
     
-    # Build delete button conditionally
-    delete_html = ''
-    if features.get('delete', True):
-        delete_html = f'''<form method="POST" action="/delete" style="display: inline;" onsubmit="return confirmDelete('{safe_name}')">
-                <input type="hidden" name="p" value="{encoded_path}">
-                <input type="hidden" name="_csrf" value="{escape_html(csrf_token)}">
-                <button type="submit" class="file-action-btn" title="Delete">\U0001f5d1\ufe0f</button>
-            </form>'''
+    # Build download button
+    download_html = ''
+    if file_info.is_dir:
+        download_html = f'<a href="/download?p={encoded_path}" class="file-action-btn" title="Download as ZIP">\U0001f4e5</a>'
+    else:
+        download_html = f'<a href="/raw?p={encoded_path}" class="file-action-btn" title="Download">\U0001f4e5</a>'
     
     return f'''
     <div class="file-group" style="margin-bottom: 2px;">
         <div class="file-item" data-path="{escape_html(file_info.path)}">
-            <div class="file-checkbox hidden" onclick="event.stopPropagation(); toggleFileSelect('{escape_html(file_info.path)}', this)"></div>
+            <div class="file-checkbox" onclick="event.stopPropagation(); toggleFileSelect('{escape_html(file_info.path)}', this)"></div>
             <div class="{icon_class}">{icon}</div>
             <div class="file-info">
                 <div class="{name_class}">{link}</div>
                 <div class="file-meta">{meta_html}</div>
             </div>
-            {delete_html}
+            {download_html}
         </div>
     </div>'''
 
