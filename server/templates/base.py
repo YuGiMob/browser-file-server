@@ -767,6 +767,11 @@ def get_head(title: str, theme: str = "dark") -> str:
             left: 0;
             right: 0;
             z-index: 50;
+            transition: transform 0.3s ease;
+        }}
+
+        .footer.hidden-by-batch {{
+            transform: translateY(100%);
         }}
 
         .footer-content {{

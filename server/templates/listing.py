@@ -147,12 +147,15 @@ function toggleFileSelect(path, element) {{
 function updateBatchBar() {{
     const batchBar = document.getElementById('batch-bar');
     const batchCount = document.getElementById('batch-count');
+    const footer = document.querySelector('.footer');
     
     if (selectMode && selectedFiles.size > 0) {{
         batchBar.classList.add('active');
+        if (footer) footer.classList.add('hidden-by-batch');
         batchCount.textContent = `${{selectedFiles.size}} selected`;
     }} else {{
         batchBar.classList.remove('active');
+        if (footer) footer.classList.remove('hidden-by-batch');
     }}
 }}
 
