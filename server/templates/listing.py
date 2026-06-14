@@ -314,7 +314,7 @@ def _render_file_item(file_info: FileInfo, current_path: str, features: dict) ->
             </div>
             <form method="POST" action="/delete" style="display: inline;" onsubmit="return confirmDelete('{file_info.name}')">
                 <input type="hidden" name="p" value="{encoded_path}">
-                <button type="submit" class="file-action-btn">\u2026</button>
+                <button type="submit" class="file-action-btn" title="Delete">🗑️</button>
             </form>
         </div>
     </div>'''
