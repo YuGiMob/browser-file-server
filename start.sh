@@ -55,12 +55,35 @@ else
     echo "Install with: pip3 install pyyaml"
 fi
 
+# Check if port is available
+if python3 -c "
+import socket, sys
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+try:
+    s.bind(('0.0.0.0', $PORT))
+    s.close()
+except OSError:
+    s.close()
+    sys.exit(1)
+" 2>/dev/null; then
+    :
+else
+    echo -e "${RED}Error: Port $PORT is already in use${NC}"
+    echo "Try a different port: $0 $ROOT_DIR 9000"
+    echo "Or find what's using it: lsof -i :$PORT"
+    exit 1
+fi
+
 # Start the server
 echo -e "${GREEN}Starting Browser File Server...${NC}"
 echo "  Root: $ROOT_DIR"
 echo "  Port: $PORT"
 echo "  Log:  $LOG_FILE"
 echo ""
+
+# Clear old log file
+> "$LOG_FILE"
 
 # Run the server
 cd "$SCRIPT_DIR"
@@ -71,7 +94,7 @@ SERVER_PID=$!
 echo "$SERVER_PID" > "$PID_FILE"
 
 # Wait a moment to check if server started successfully
-sleep 1
+sleep 2
 
 if ps -p "$SERVER_PID" > /dev/null 2>&1; then
     echo -e "${GREEN}File server started successfully!${NC}"
@@ -87,8 +110,22 @@ if ps -p "$SERVER_PID" > /dev/null 2>&1; then
     echo "To run in foreground (for debugging):"
     echo "  cd $SCRIPT_DIR && python3 -m server $ROOT_DIR $PORT"
 else
+    # Server exited - show the error from log
     echo -e "${RED}Error: Failed to start file server${NC}"
-    echo "Check the log file for details: $LOG_FILE"
+    echo ""
+    # Show relevant error lines from log
+    if [ -f "$LOG_FILE" ] && [ -s "$LOG_FILE" ]; then
+        echo "Server output:"
+        echo "────────────────────────────────────────"
+        tail -20 "$LOG_FILE"
+        echo "────────────────────────────────────────"
+    else
+        echo "No output captured in $LOG_FILE"
+    fi
+    echo ""
+    echo "Common fixes:"
+    echo "  - Port in use: try a different port"
+    echo "  - Invalid root: check the directory exists"
     rm -f "$PID_FILE"
     exit 1
 fi
