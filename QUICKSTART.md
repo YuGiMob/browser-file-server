@@ -1,41 +1,82 @@
-# browser-file-server — Quick Start
+# Browser File Server — Quick Start
 
-A single one-liner downloads, installs, and runs the server in the background.
-Open it in any browser at the URL it prints.
+A modern, secure HTTP file server with web UI. Zero dependencies.
 
-## The one-liner
+## Basic Usage
 
 ```bash
-curl -sL https://raw.githubusercontent.com/YuGiMob/browser-file-server/main/fileserver.py -o fileserver.py && nohup python3 fileserver.py ~ 8080 > fileserver.log 2>&1 & disown
+# Start with defaults (serves ~/ on port 8080)
+python -m server
+
+# Serve specific directory
+python -m server /path/to/share
+
+# Specify port
+python -m server /path/to/share 9000
 ```
 
 Then open: **http://localhost:8080**
 
-## What it does
-
-1. `curl -sL … -o fileserver.py` — downloads the latest `fileserver.py` to the current directory
-2. `nohup … &` — runs the server detached so it survives closing the terminal
-3. `disown` — detaches the job from the shell's job table
-4. `> fileserver.log 2>&1` — captures output to a log file
-
-The default path it serves is `~` (your home directory). The default port is `8080`. Both can be changed by editing the last two arguments of the command.
-
-## Useful follow-ups
+## Background Mode
 
 ```bash
-# View the log
+# Using the launch script
+./start-fileserver.sh /path/to/share 8080
+
+# Or manually
+nohup python -m server /path/to/share 8080 > fileserver.log 2>&1 &
+disown
+```
+
+## Useful Commands
+
+```bash
+# View logs
 tail -f fileserver.log
 
-# Stop the server
-pkill -f fileserver.py
+# Stop server
+pkill -f "python.*server"
 
-# Serve a different directory on a different port
-nohup python3 fileserver.py /path/to/serve 9000 > fileserver.log 2>&1 & disown
+# Check configuration
+python -m server --check-config
 
-# Open the file in your editor (or just edit through the browser at /?p=fileserver.py&edit=1)
+# Show help
+python -m server --help
+```
+
+## Features
+
+- 📁 Browse directories
+- 📝 Edit text files (Ctrl+S to save)
+- 🔍 Search files
+- ⬆️ Upload files (drag & drop)
+- ⬇️ Download files/folders
+- 🖼️ Preview images, videos, audio
+- 🌓 Dark/Light theme
+
+## Configuration
+
+Create `config.yaml`:
+
+```yaml
+server:
+  host: 0.0.0.0
+  port: 8080
+  root: ~/files
+
+ui:
+  theme: dark
 ```
 
 ## Requirements
 
-- Python 3 (no extra packages — uses only the standard library)
-- `curl` (for the download; alternatively you can `git clone` the repo and run the script directly)
+- Python 3.7+
+- No external dependencies
+
+## Legacy Usage
+
+The original `fileserver.py` still works:
+
+```bash
+python3 fileserver.py ~/ 8080
+```

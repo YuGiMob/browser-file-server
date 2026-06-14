@@ -1,0 +1,119 @@
+# Browser File Server Configuration
+# Copy this file to config.yaml and modify as needed.
+
+server:
+  # Host to bind to (default: 127.0.0.1)
+  # Use 0.0.0.0 to listen on all interfaces
+  host: 127.0.0.1
+  
+  # Port to listen on (default: 8080)
+  port: 8080
+  
+  # Root directory to serve (default: ~)
+  # Can use ~ for home directory
+  root: ~/files
+  
+  # Maximum upload file size in bytes (default: 100MB)
+  max_upload_size: 104857600
+  
+  # Request timeout in seconds (default: 30)
+  timeout: 30
+
+security:
+  ssl:
+    # Enable HTTPS (default: false)
+    enabled: false
+    
+    # Path to SSL certificate file
+    certfile: /path/to/cert.pem
+    
+    # Path to SSL key file
+    keyfile: /path/to/key.pem
+  
+  rate_limit:
+    # Enable rate limiting (default: true)
+    enabled: true
+    
+    # Maximum requests per minute per IP
+    requests_per_minute: 60
+    
+    # Maximum burst size
+    burst: 10
+  
+  # Allowed IPs (empty = all allowed)
+  # Can be IP addresses or networks (e.g., 192.168.1.0/24)
+  allowed_ips: []
+  
+  # Blocked IPs
+  blocked_ips: []
+  
+  cors:
+    # Enable CORS headers (default: false)
+    enabled: false
+    
+    # Allowed origins
+    origins:
+      - "*"
+
+features:
+  # Enable file search (default: true)
+  search: true
+  
+  # Enable file preview (default: true)
+  preview: true
+  
+  # Enable file upload (default: true)
+  upload: true
+  
+  # Enable file deletion (default: true)
+  delete: true
+  
+  # Enable directory creation (default: true)
+  mkdir: true
+  
+  # Enable file editing (default: true)
+  edit: true
+  
+  # Enable folder download as ZIP (default: true)
+  download_zip: true
+  
+  # Enable file move/rename (default: true)
+  move: true
+  
+  # Enable file copy (default: true)
+  copy: true
+
+ui:
+  # Theme: dark, light, or auto (default: dark)
+  theme: dark
+  
+  # Items per page (default: 100)
+  items_per_page: 100
+  
+  # Show hidden files (default: false)
+  show_hidden: false
+  
+  # Default sort: name, size, or modified (default: name)
+  default_sort: name
+  
+  # Show file preview (default: true)
+  show_preview: true
+  
+  # Show thumbnails for images (default: true)
+  show_thumbnails: true
+
+logging:
+  # Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL (default: INFO)
+  level: INFO
+  
+  # Log file path (empty = log to stderr)
+  file: ""
+  
+  # Maximum log file size in bytes (default: 10MB)
+  max_size: 10485760
+  
+  # Number of backup log files (default: 5)
+  backup_count: 5
+  
+  # Log format: text or json (default: text)
+  format: text
