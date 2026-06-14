@@ -312,7 +312,10 @@ def _render_file_item(file_info: FileInfo, current_path: str, features: dict) ->
                 <div class="{name_class}">{link}</div>
                 <div class="file-meta">{meta_html}</div>
             </div>
-            <a href="/delete?p={encoded_path}" class="file-action-btn" onclick="return confirmDelete('{file_info.name}')">\u2026</a>
+            <form method="POST" action="/delete" style="display: inline;" onsubmit="return confirmDelete('{file_info.name}')">
+                <input type="hidden" name="p" value="{encoded_path}">
+                <button type="submit" class="file-action-btn">\u2026</button>
+            </form>
         </div>
     </div>'''
 
