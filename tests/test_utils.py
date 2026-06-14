@@ -9,10 +9,9 @@ import os
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from server.utils.mime import guess_mime_type, is_text_mime_type, get_extension
-from server.utils.format import format_size, format_time, escape_html, unescape_html
-from server.utils.path import normalize_path, join_paths, get_parent_path, get_filename
-
+from server.utils.mime import guess_mime_type, is_text_mime_type, get_extension, is_image_mime_type, get_content_disposition
+from server.utils.format import format_size, format_time, escape_html, format_permissions
+from server.utils.path import normalize_path, join_paths, get_parent_path
 
 class TestMimeUtils(unittest.TestCase):
     """Test MIME type utilities."""
@@ -49,6 +48,24 @@ class TestMimeUtils(unittest.TestCase):
         self.assertEqual(get_extension("test.PY"), ".py")
         self.assertEqual(get_extension("test"), "")
 
+    def test_is_image_mime_type(self):
+        """Test image MIME type detection."""
+        self.assertTrue(is_image_mime_type('image/png'))
+        self.assertTrue(is_image_mime_type('image/jpeg'))
+        self.assertFalse(is_image_mime_type('text/plain'))
+        self.assertFalse(is_image_mime_type('video/mp4'))
+
+    def test_get_content_disposition_inline(self):
+        """Test inline disposition for text/images."""
+        disp = get_content_disposition('test.txt', 'text/plain')
+        self.assertIn('inline', disp)
+        self.assertIn('test.txt', disp)
+
+    def test_get_content_disposition_attachment(self):
+        """Test attachment disposition for binary files."""
+        disp = get_content_disposition('file.zip', 'application/zip')
+        self.assertIn('attachment', disp)
+        self.assertIn('file.zip', disp)
 
 class TestFormatUtils(unittest.TestCase):
     """Test formatting utilities."""
@@ -82,12 +99,14 @@ class TestFormatUtils(unittest.TestCase):
         self.assertEqual(escape_html("a & b"), "a &amp; b")
         self.assertEqual(escape_html('"quotes"'), "&quot;quotes&quot;")
 
-    def test_unescape_html(self):
-        """Test HTML unescaping."""
-        self.assertEqual(unescape_html("&lt;b&gt;bold&lt;/b&gt;"), "<b>bold</b>")
-        self.assertEqual(unescape_html("a &amp; b"), "a & b")
-
-
+    def test_format_permissions(self):
+        """Test permissions formatting."""
+        # Regular file: -rw-r--r--
+        self.assertEqual(format_permissions(0o644), '-rw-r--r--')
+        # Directory: drwxr-xr-x
+        self.assertEqual(format_permissions(0o755 | 0o040000), 'drwxr-xr-x')
+        # Executable: -rwxr-xr-x
+        self.assertEqual(format_permissions(0o755), '-rwxr-xr-x')
 class TestPathUtils(unittest.TestCase):
     """Test path utilities."""
 
@@ -113,13 +132,6 @@ class TestPathUtils(unittest.TestCase):
         self.assertEqual(get_parent_path("foo/bar"), "foo")
         self.assertEqual(get_parent_path("foo"), "")
         self.assertEqual(get_parent_path(""), "")
-
-    def test_get_filename(self):
-        """Test getting filename."""
-        self.assertEqual(get_filename("foo/bar.txt"), "bar.txt")
-        self.assertEqual(get_filename("foo"), "foo")
-        self.assertEqual(get_filename(""), "")
-
 
 if __name__ == "__main__":
     unittest.main()

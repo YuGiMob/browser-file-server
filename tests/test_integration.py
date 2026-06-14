@@ -18,7 +18,7 @@ import urllib.parse
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from server.config import Config, ServerConfig, SecurityConfig, FeaturesConfig, UIConfig, LoggingConfig
+from server.config import Config, ServerConfig, SecurityConfig, FeaturesConfig, UIConfig, LoggingConfig, RateLimitConfig
 from server.handler import FileServerHandler, create_handler_class
 from server.storage import Storage, FileInfo
 from server.templates import render_listing, render_editor, render_preview, render_error
@@ -194,7 +194,7 @@ class TestHTTPIntegration(unittest.TestCase):
         cls.temp_dir = tempfile.mkdtemp()
         cls.config = Config(
             server=ServerConfig(root=cls.temp_dir, port=0),  # Random port
-            security=SecurityConfig(),
+            security=SecurityConfig(rate_limit=RateLimitConfig(enabled=False)),
             features=FeaturesConfig(),
             ui=UIConfig(),
             logging=LoggingConfig(),
@@ -369,7 +369,7 @@ class TestBatchOperations(unittest.TestCase):
         self.temp_dir = tempfile.mkdtemp()
         self.config = Config(
             server=ServerConfig(root=self.temp_dir, port=0),
-            security=SecurityConfig(),
+            security=SecurityConfig(rate_limit=RateLimitConfig(enabled=False)),
             features=FeaturesConfig(),
             ui=UIConfig(),
             logging=LoggingConfig(),

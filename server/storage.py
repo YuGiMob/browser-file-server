@@ -14,10 +14,12 @@ import zipfile
 import io
 import time
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple, Generator, Any
+from typing import List, Dict, Optional, Generator, Any
 from dataclasses import dataclass
-from datetime import datetime
 import mimetypes
+import mimetypes
+
+from .utils.format import format_size, format_time
 
 
 @dataclass
@@ -476,22 +478,6 @@ class Storage:
         return ''.join(perms)
 
 
-def format_size(size: int) -> str:
-    """Format file size in human-readable format."""
-    for unit in ('B', 'KB', 'MB', 'GB', 'TB'):
-        if size < 1024:
-            if unit == 'B':
-                return f"{size}{unit}"
-            return f"{size:.1f}{unit}"
-        size /= 1024
-    return f"{size:.1f}PB"
-
-
-def format_time(timestamp: float) -> str:
-    """Format timestamp to human-readable string."""
-    dt = datetime.fromtimestamp(timestamp)
-    return dt.strftime("%Y-%m-%d %H:%M")
-
 
 def get_icon_for_file(name: str, is_dir: bool) -> str:
     """Get emoji icon for file type."""
@@ -545,23 +531,3 @@ def get_icon_for_file(name: str, is_dir: bool) -> str:
 
     return icons.get(ext, "📄")
 
-
-def get_file_category(name: str, is_dir: bool) -> str:
-    """Get file category for filtering."""
-    if is_dir:
-        return "folder"
-
-    ext = os.path.splitext(name)[1].lower()
-
-    if ext in IMAGE_EXTENSIONS:
-        return "image"
-    if ext in VIDEO_EXTENSIONS:
-        return "video"
-    if ext in AUDIO_EXTENSIONS:
-        return "audio"
-    if ext in ARCHIVE_EXTENSIONS:
-        return "archive"
-    if ext in TEXT_EXTENSIONS:
-        return "text"
-
-    return "other"

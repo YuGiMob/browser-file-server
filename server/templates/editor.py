@@ -3,7 +3,8 @@ File editor template with professional mobile-app design.
 """
 
 from urllib.parse import quote
-from typing import Optional
+
+from ..utils.format import escape_html
 
 
 def render_editor(
@@ -12,6 +13,7 @@ def render_editor(
     flash_message: str = "",
     flash_type: str = "success",
     read_only: bool = False,
+    csrf_token: str = "",
 ) -> str:
     """
     Render file editor HTML.
@@ -22,11 +24,15 @@ def render_editor(
         flash_message: Flash message to display
         flash_type: Flash message type
         read_only: Whether the editor is read-only
+        csrf_token: CSRF token for form submission
 
     Returns:
         HTML string
     """
     encoded_path = quote(file_path)
+    safe_file_path = escape_html(file_path)
+    safe_file_name = escape_html(file_path.split('/')[-1])
+    
     flash_html = ""
     if flash_message:
         flash_html = f'<div class="flash flash-{flash_type}">{flash_message}</div>'
@@ -42,7 +48,7 @@ def render_editor(
     <div class="header-content">
         <div class="header-top">
             <a href="/?p={quote(_get_parent_path(file_path))}" class="btn-icon">←</a>
-            <span class="header-title">{file_path.split('/')[-1]}</span>
+            <span class="header-title">{safe_file_name}</span>
             <div class="header-actions">
                 <a href="/?p={encoded_path}" class="btn-icon" title="View">👁️</a>
                 <a href="/raw?p={encoded_path}" class="btn-icon" title="Download">⬇️</a>
@@ -61,12 +67,13 @@ def render_editor(
     
     <div class="editor-container">
         <form method="post" action="/save" id="editor-form">
-            <input type="hidden" name="p" value="{file_path}">
+            <input type="hidden" name="p" value="{safe_file_path}">
+            <input type="hidden" name="_csrf" value="{escape_html(csrf_token)}">
             
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <span style="color: var(--text-secondary); font-size: 13px;">
-                        {language_hint}
+                        {escape_html(language_hint)}
                     </span>
                     <span id="line-count" style="color: var(--text-muted); font-size: 13px;"></span>
                 </div>
@@ -85,7 +92,7 @@ def render_editor(
                 {read_only_attr}
                 oninput="updateCounts()"
                 onkeydown="handleTab(event)"
-            >{_escape_html(content)}</textarea>
+            >{escape_html(content)}</textarea>
             
             <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
                 <div style="color: var(--text-muted); font-size: 13px;">
@@ -204,18 +211,6 @@ updateCounts();
     return html
 
 
-def _escape_html(text: str) -> str:
-    """Escape HTML special characters."""
-    return (
-        text
-        .replace('&', '&amp;')
-        .replace('<', '&lt;')
-        .replace('>', '&gt;')
-        .replace('"', '&quot;')
-        .replace("'", '&#39;')
-    )
-
-
 def _get_parent_path(path: str) -> str:
     """Get parent directory path."""
     if not path:
@@ -236,12 +231,12 @@ def _build_path_breadcrumb(path: str) -> str:
     for i, part in enumerate(parts):
         if i == len(parts) - 1:
             # Last part (filename) - not a link
-            html += f'<span class="separator">/</span><span class="current">{part}</span>'
+            html += f'<span class="separator">/</span><span class="current">{escape_html(part)}</span>'
         else:
             current += "/" + part if current else part
             from urllib.parse import quote as url_quote
             encoded = url_quote(current)
-            html += f'<span class="separator">/</span><a href="/?p={encoded}">{part}</a>'
+            html += f'<span class="separator">/</span><a href="/?p={encoded}">{escape_html(part)}</a>'
 
     return html
 

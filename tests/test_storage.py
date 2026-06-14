@@ -11,7 +11,7 @@ from pathlib import Path
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from server.storage import Storage, FileInfo, format_size, format_time
+from server.storage import Storage, FileInfo, format_size, format_time, get_icon_for_file
 
 
 class TestStorage(unittest.TestCase):
@@ -172,21 +172,21 @@ class TestFormatSize(unittest.TestCase):
 
     def test_bytes(self):
         """Test byte formatting."""
-        self.assertEqual(format_size(0), "0B")
-        self.assertEqual(format_size(100), "100B")
+        self.assertEqual(format_size(0), "0 B")
+        self.assertEqual(format_size(100), "100 B")
 
     def test_kilobytes(self):
         """Test kilobyte formatting."""
-        self.assertEqual(format_size(1024), "1.0KB")
-        self.assertEqual(format_size(1536), "1.5KB")
+        self.assertEqual(format_size(1024), "1.0 KB")
+        self.assertEqual(format_size(1536), "1.5 KB")
 
     def test_megabytes(self):
         """Test megabyte formatting."""
-        self.assertEqual(format_size(1048576), "1.0MB")
+        self.assertEqual(format_size(1048576), "1.0 MB")
 
     def test_gigabytes(self):
         """Test gigabyte formatting."""
-        self.assertEqual(format_size(1073741824), "1.0GB")
+        self.assertEqual(format_size(1073741824), "1.0 GB")
 
 
 class TestFormatTime(unittest.TestCase):
@@ -202,5 +202,55 @@ class TestFormatTime(unittest.TestCase):
         self.assertIn(":", result)
 
 
+
+class TestGetIconForFile(unittest.TestCase):
+    """Test file icon detection."""
+
+    def test_folder_icon(self):
+        """Test folder icon."""
+        self.assertEqual(get_icon_for_file('mydir', True), '📁')
+
+    def test_python_file(self):
+        """Test Python file icon."""
+        self.assertEqual(get_icon_for_file('test.py', False), '🐍')
+
+    def test_javascript_file(self):
+        """Test JavaScript file icon."""
+        self.assertEqual(get_icon_for_file('app.js', False), '📜')
+
+    def test_image_file(self):
+        """Test image file icon."""
+        self.assertEqual(get_icon_for_file('photo.jpg', False), '🖼️')
+
+    def test_unknown_file(self):
+        """Test unknown file icon."""
+        self.assertEqual(get_icon_for_file('file.xyz', False), '📄')
+
+
+class TestFileInfo(unittest.TestCase):
+    """Test FileInfo dataclass."""
+
+    def test_to_dict(self):
+        """Test FileInfo to_dict conversion."""
+        info = FileInfo(
+            name='test.txt',
+            path='test.txt',
+            is_dir=False,
+            size=1024,
+            modified=1234567890.0,
+            modified_str='2024-01-01 12:00',
+            mime_type='text/plain',
+            is_text=True,
+            is_hidden=False,
+            permissions='-rw-r--r--'
+        )
+        d = info.to_dict()
+        self.assertEqual(d['name'], 'test.txt')
+        self.assertEqual(d['path'], 'test.txt')
+        self.assertFalse(d['is_dir'])
+        self.assertEqual(d['size'], 1024)
+        self.assertIn('size_formatted', d)
+        self.assertEqual(d['mime_type'], 'text/plain')
+        self.assertTrue(d['is_text'])
 if __name__ == "__main__":
     unittest.main()

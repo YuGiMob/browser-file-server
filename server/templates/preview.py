@@ -6,6 +6,8 @@ from urllib.parse import quote
 from typing import Optional
 import os
 
+from ..utils.format import escape_html
+
 
 def render_preview(
     file_path: str,
@@ -14,6 +16,7 @@ def render_preview(
     file_size: int,
     content: Optional[str] = None,
     is_text: bool = False,
+    csrf_token: str = "",
 ) -> str:
     """
     Render file preview HTML.
@@ -25,12 +28,14 @@ def render_preview(
         file_size: File size in bytes
         content: Text content (for text files)
         is_text: Whether the file is a text file
+        csrf_token: CSRF token for forms
 
     Returns:
         HTML string
     """
     encoded_path = quote(file_path)
     ext = os.path.splitext(file_name)[1].lower()
+    safe_file_name = escape_html(file_name)
 
     # Determine preview type
     preview_content = _get_preview_content(
@@ -45,7 +50,7 @@ def render_preview(
     <div class="header-content">
         <div class="header-top">
             <a href="/?p={quote(_get_parent_path(file_path))}" class="btn-icon">←</a>
-            <span class="header-title">{file_name}</span>
+            <span class="header-title">{safe_file_name}</span>
             <div class="header-actions">
                 <a href="/raw?p={encoded_path}" class="btn-icon" title="Download">⬇️</a>
                 {'<a href="/?p=' + encoded_path + '&edit=1" class="btn-icon" title="Edit">✏️</a>' if is_text else ''}
@@ -63,8 +68,8 @@ def render_preview(
     <div class="preview-container">
         <div class="preview-header">
             <div>
-                <div class="preview-title">{file_name}</div>
-                <div class="preview-subtitle">{mime_type or 'Unknown type'} · {size_str}</div>
+                <div class="preview-title">{safe_file_name}</div>
+                <div class="preview-subtitle">{escape_html(mime_type or 'Unknown type')} · {size_str}</div>
             </div>
         </div>
         
@@ -104,12 +109,13 @@ def _get_preview_content(
 ) -> str:
     """Get preview content based on file type."""
     encoded_path = quote(file_path)
+    safe_file_name = escape_html(file_name)
 
     # Image preview
     if ext in ('.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico'):
         return f"""
         <div style="text-align: center;">
-            <img src="/raw?p={encoded_path}" alt="{file_name}" class="preview-image"
+            <img src="/raw?p={encoded_path}" alt="{safe_file_name}" class="preview-image"
                  style="max-width: 100%; max-height: 80vh; border-radius: var(--radius);">
         </div>"""
 
@@ -118,7 +124,7 @@ def _get_preview_content(
         return f"""
         <div style="text-align: center;">
             <video controls class="preview-video" style="max-width: 100%; border-radius: var(--radius);">
-                <source src="/raw?p={encoded_path}" type="{mime_type}">
+                <source src="/raw?p={encoded_path}" type="{escape_html(mime_type or '')}">
                 Your browser does not support the video tag.
             </video>
         </div>"""
@@ -129,7 +135,7 @@ def _get_preview_content(
         <div style="padding: 32px; background: var(--bg-card); border-radius: var(--radius); text-align: center;">
             <div style="font-size: 64px; margin-bottom: 16px;">🎵</div>
             <audio controls style="width: 100%; max-width: 500px;">
-                <source src="/raw?p={encoded_path}" type="{mime_type}">
+                <source src="/raw?p={encoded_path}" type="{escape_html(mime_type or '')}">
                 Your browser does not support the audio tag.
             </audio>
         </div>"""
@@ -149,7 +155,7 @@ def _get_preview_content(
                     onclick="copyContent()">
                 📋 Copy
             </button>
-            <pre class="preview-code" id="code-content">{_escape_html(content)}</pre>
+            <pre class="preview-code" id="code-content">{escape_html(content)}</pre>
         </div>
         <script>
         function copyContent() {{
@@ -173,18 +179,6 @@ def _get_preview_content(
     </div>"""
 
 
-def _escape_html(text: str) -> str:
-    """Escape HTML special characters."""
-    return (
-        text
-        .replace('&', '&amp;')
-        .replace('<', '&lt;')
-        .replace('>', '&gt;')
-        .replace('"', '&quot;')
-        .replace("'", '&#39;')
-    )
-
-
 def _get_parent_path(path: str) -> str:
     """Get parent directory path."""
     if not path:
@@ -205,12 +199,12 @@ def _build_path_breadcrumb(path: str) -> str:
     for i, part in enumerate(parts):
         if i == len(parts) - 1:
             # Last part (filename) - not a link
-            html += f'<span class="separator">/</span><span class="current">{part}</span>'
+            html += f'<span class="separator">/</span><span class="current">{escape_html(part)}</span>'
         else:
             current += "/" + part if current else part
             from urllib.parse import quote as url_quote
             encoded = url_quote(current)
-            html += f'<span class="separator">/</span><a href="/?p={encoded}">{part}</a>'
+            html += f'<span class="separator">/</span><a href="/?p={encoded}">{escape_html(part)}</a>'
 
     return html
 

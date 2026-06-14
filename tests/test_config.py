@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from server.config import (
     Config, ServerConfig, SecurityConfig, FeaturesConfig, UIConfig, LoggingConfig,
-    SSLConfig, RateLimitConfig, load_config_file, merge_configs, validate_config
+    SSLConfig, RateLimitConfig, load_config_file, merge_configs, validate_config, apply_env_vars
 )
 
 
@@ -156,5 +156,45 @@ class TestConfigValidation(unittest.TestCase):
                 validate_config(config)
 
 
+
+class TestApplyEnvVars(unittest.TestCase):
+    """Test environment variable application."""
+
+    def test_host_env_var(self):
+        """Test FILESERVER_HOST env var."""
+        os.environ['FILESERVER_HOST'] = '0.0.0.0'
+        try:
+            config = {'server': {'host': '127.0.0.1'}}
+            result = apply_env_vars(config)
+            self.assertEqual(result['server']['host'], '0.0.0.0')
+        finally:
+            del os.environ['FILESERVER_HOST']
+
+    def test_port_env_var(self):
+        """Test FILESERVER_PORT env var."""
+        os.environ['FILESERVER_PORT'] = '9000'
+        try:
+            config = {'server': {'port': 8080}}
+            result = apply_env_vars(config)
+            self.assertEqual(result['server']['port'], 9000)
+        finally:
+            del os.environ['FILESERVER_PORT']
+
+    def test_ssl_enabled_env_var(self):
+        """Test FILESERVER_SSL_ENABLED env var."""
+        os.environ['FILESERVER_SSL_ENABLED'] = 'true'
+        try:
+            config = {'security': {'ssl': {'enabled': False}}}
+            result = apply_env_vars(config)
+            self.assertTrue(result['security']['ssl']['enabled'])
+        finally:
+            del os.environ['FILESERVER_SSL_ENABLED']
+
+    def test_no_env_vars(self):
+        """Test with no env vars set."""
+        config = {'server': {'host': '127.0.0.1', 'port': 8080}}
+        result = apply_env_vars(config)
+        self.assertEqual(result['server']['host'], '127.0.0.1')
+        self.assertEqual(result['server']['port'], 8080)
 if __name__ == "__main__":
     unittest.main()

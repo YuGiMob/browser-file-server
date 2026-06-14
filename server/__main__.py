@@ -12,7 +12,6 @@ import sys
 import signal
 import logging
 from http.server import ThreadingHTTPServer
-from typing import Optional
 
 from . import __version__
 from .config import build_config, validate_config, Config

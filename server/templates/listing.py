@@ -5,8 +5,8 @@ Directory listing template with professional mobile-app design.
 from typing import List, Optional
 from urllib.parse import quote
 
-
-from ..storage import FileInfo, format_size, format_time, get_icon_for_file
+from ..storage import FileInfo, format_size, get_icon_for_file
+from ..utils.format import escape_html
 
 
 def render_listing(
@@ -19,6 +19,7 @@ def render_listing(
     flash_type: str = "success",
     page: int = 1,
     total_pages: int = 1,
+    csrf_token: str = "",
     features: Optional[dict] = None,
 ) -> str:
     """
@@ -34,7 +35,7 @@ def render_listing(
     
     file_items = []
     for file_info in files:
-        file_items.append(_render_file_item(file_info, current_path, features))
+        file_items.append(_render_file_item(file_info, current_path, features, csrf_token))
     
     upload_html = ""
     if features.get("upload", True):
@@ -45,13 +46,26 @@ def render_listing(
                 <strong>Tap to upload</strong> or drag files here
             </div>
             <form method="post" action="/upload" enctype="multipart/form-data" id="upload-form" style="margin-top: 16px;">
-                <input type="hidden" name="p" value="{current_path}">
+                <input type="hidden" name="p" value="{escape_html(current_path)}">
+                <input type="hidden" name="_csrf" value="{escape_html(csrf_token)}">
                 <input type="file" name="f" multiple id="file-input" style="display: none;" accept="*/*">
                 <button type="button" class="btn btn-ghost" onclick="document.getElementById('file-input').click()">
                     Choose Files
                 </button>
             </form>
         </div>'''
+    
+    # Build search bar conditionally
+    search_html = ""
+    if features.get("search", True):
+        search_html = f'''
+    <div class="search-bar">
+        <form method="get" action="/search" class="search-input-wrapper">
+            <input type="hidden" name="p" value="{escape_html(current_path)}">
+            <span class="search-icon">\U0001f50d</span>
+            <input type="search" name="q" value="{escape_html(search_query)}" placeholder="Search" class="search-input">
+        </form>
+    </div>'''
     
     empty_html = ""
     if not file_items:
@@ -64,20 +78,14 @@ def render_listing(
     <div class="header-content">
         <div class="header-top">
             <a href="/?p={quote(_get_parent_path(current_path))}" class="btn-icon">\u2b06\ufe0f</a>
-            <span class="header-title">{_get_display_name(current_path)}</span>
+            <span class="header-title">{escape_html(_get_display_name(current_path))}</span>
             <div class="header-actions">
                 <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">\U0001f313</button>
             </div>
         </div>
         <div class="breadcrumb">{breadcrumb}</div>
     </div>
-    <div class="search-bar">
-        <form method="get" action="/search" class="search-input-wrapper">
-            <input type="hidden" name="p" value="{current_path}">
-            <span class="search-icon">\U0001f50d</span>
-            <input type="search" name="q" value="{search_query}" placeholder="Search" class="search-input">
-        </form>
-    </div>
+    {search_html}
     <div class="toolbar">
         <div class="segmented-control">
             <a href="/?p={encoded_path}&sort=name" class="segmented-btn {'active' if sort_by == 'name' else ''}">Name</a>
@@ -169,8 +177,14 @@ function downloadSelected() {{
     const pathInput = document.createElement('input');
     pathInput.type = 'hidden';
     pathInput.name = 'p';
-    pathInput.value = '{current_path}';
+    pathInput.value = '{escape_html(current_path)}';
     form.appendChild(pathInput);
+    
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = '_csrf';
+    csrfInput.value = '{escape_html(csrf_token)}';
+    form.appendChild(csrfInput);
     
     selectedFiles.forEach(f => {{
         const input = document.createElement('input');
@@ -199,6 +213,12 @@ function deleteSelected() {{
         input.name = 'p';
         input.value = path;
         form.appendChild(input);
+        
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = '_csrf';
+        csrfInput.value = '{escape_html(csrf_token)}';
+        form.appendChild(csrfInput);
         
         document.body.appendChild(form);
         form.submit();
@@ -267,9 +287,9 @@ def _build_breadcrumb(path: str) -> str:
         current += "/" + part if current else part
         encoded = quote(current)
         if i == len(parts) - 1:
-            html += f'<span class="separator">/</span><span class="current">{part}</span>'
+            html += f'<span class="separator">/</span><span class="current">{escape_html(part)}</span>'
         else:
-            html += f'<span class="separator">/</span><a href="/?p={encoded}">{part}</a>'
+            html += f'<span class="separator">/</span><a href="/?p={encoded}">{escape_html(part)}</a>'
     return html
 
 
@@ -286,39 +306,46 @@ def _get_display_name(path: str) -> str:
     return path.rstrip('/').split('/')[-1]
 
 
-def _render_file_item(file_info: FileInfo, current_path: str, features: dict) -> str:
+def _render_file_item(file_info: FileInfo, current_path: str, features: dict, csrf_token: str) -> str:
     icon = get_icon_for_file(file_info.name, file_info.is_dir)
     encoded_path = quote(file_info.path)
     name_class = "file-name is-dir" if file_info.is_dir else "file-name"
+    safe_name = escape_html(file_info.name)
     
     if file_info.is_dir:
-        link = f'<a href="/?p={encoded_path}">{file_info.name}</a>'
+        link = f'<a href="/?p={encoded_path}">{safe_name}</a>'
     elif file_info.is_text and features.get("edit", True):
-        link = f'<a href="/?p={encoded_path}&edit=1">{file_info.name}</a>'
+        link = f'<a href="/?p={encoded_path}&edit=1">{safe_name}</a>'
     else:
-        link = f'<a href="/raw?p={encoded_path}">{file_info.name}</a>'
+        link = f'<a href="/raw?p={encoded_path}">{safe_name}</a>'
     
     meta_parts = []
     if not file_info.is_dir:
         meta_parts.append(format_size(file_info.size))
     meta_parts.append(file_info.modified_str)
-    meta_html = ' \u00b7 '.join(meta_parts)
+    meta_html = ' · '.join(meta_parts)
     
     icon_class = "file-icon folder" if file_info.is_dir else "file-icon"
     
+    # Build delete button conditionally
+    delete_html = ''
+    if features.get('delete', True):
+        delete_html = f'''<form method="POST" action="/delete" style="display: inline;" onsubmit="return confirmDelete('{safe_name}')">
+                <input type="hidden" name="p" value="{encoded_path}">
+                <input type="hidden" name="_csrf" value="{escape_html(csrf_token)}">
+                <button type="submit" class="file-action-btn" title="Delete">\U0001f5d1\ufe0f</button>
+            </form>'''
+    
     return f'''
     <div class="file-group" style="margin-bottom: 2px;">
-        <div class="file-item" data-path="{file_info.path}">
-            <div class="file-checkbox hidden" onclick="event.stopPropagation(); toggleFileSelect('{file_info.path}', this)"></div>
+        <div class="file-item" data-path="{escape_html(file_info.path)}">
+            <div class="file-checkbox hidden" onclick="event.stopPropagation(); toggleFileSelect('{escape_html(file_info.path)}', this)"></div>
             <div class="{icon_class}">{icon}</div>
             <div class="file-info">
                 <div class="{name_class}">{link}</div>
                 <div class="file-meta">{meta_html}</div>
             </div>
-            <form method="POST" action="/delete" style="display: inline;" onsubmit="return confirmDelete('{file_info.name}')">
-                <input type="hidden" name="p" value="{encoded_path}">
-                <button type="submit" class="file-action-btn" title="Delete">🗑️</button>
-            </form>
+            {delete_html}
         </div>
     </div>'''
 

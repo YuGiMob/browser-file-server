@@ -10,7 +10,6 @@ Provides:
 
 import os
 import time
-import secrets
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import quote, unquote
@@ -312,70 +311,6 @@ class SecurityHeaders:
 
         return headers
 
-
-class CSRFProtection:
-    """CSRF token generation and validation."""
-
-    def __init__(self, secret: str):
-        """
-        Initialize CSRF protection.
-
-        Args:
-            secret: Secret key for token generation
-        """
-        self.secret = secret.encode() if isinstance(secret, str) else secret
-
-    def generate_token(self) -> str:
-        """Generate a CSRF token."""
-        import hmac
-        import hashlib
-
-        token = secrets.token_hex(32)
-        timestamp = str(int(time.time()))
-        signature = hmac.new(
-            self.secret,
-            f"{token}{timestamp}".encode(),
-            hashlib.sha256
-        ).hexdigest()
-        return f"{token}.{timestamp}.{signature}"
-
-    def validate_token(self, token: str, max_age: int = 3600) -> bool:
-        """
-        Validate a CSRF token.
-
-        Args:
-            token: Token to validate
-            max_age: Maximum token age in seconds
-
-        Returns:
-            True if token is valid
-        """
-        import hmac
-        import hashlib
-
-        try:
-            parts = token.split('.')
-            if len(parts) != 3:
-                return False
-
-            token_part, timestamp_str, signature = parts
-
-            # Check timestamp
-            timestamp = int(timestamp_str)
-            if time.time() - timestamp > max_age:
-                return False
-
-            # Verify signature
-            expected = hmac.new(
-                self.secret,
-                f"{token_part}{timestamp_str}".encode(),
-                hashlib.sha256
-            ).hexdigest()
-
-            return hmac.compare_digest(signature, expected)
-
-        except (ValueError, AttributeError):
-            return False
 
 
 def get_client_ip(handler) -> str:

@@ -84,7 +84,7 @@ python -m server --config config.yaml
 
 ```bash
 # Using the launch script
-./start-fileserver.sh /path/to/share 8080
+./start.sh /path/to/share 8080
 
 # Or manually
 nohup python -m server /path/to/share 8080 > fileserver.log 2>&1 &
@@ -203,7 +203,7 @@ fileserver/
 │   └── utils/           # Utility functions
 ├── fileserver.py        # Legacy entry point
 ├── config.example.yaml  # Example config
-├── start-fileserver.sh  # Launch script
+├── start.sh             # Launch script
 ├── tests/               # Unit tests
 └── README.md            # This file
 ```

@@ -13,7 +13,7 @@ from .base import get_base_html, get_head, get_footer
 from .listing import render_listing
 from .editor import render_editor
 from .preview import render_preview
-from .error import render_error, render_not_found, render_forbidden, render_internal_error
+from .error import render_error
 
 __all__ = [
     'get_base_html',
@@ -23,7 +23,4 @@ __all__ = [
     'render_editor',
     'render_preview',
     'render_error',
-    'render_not_found',
-    'render_forbidden',
-    'render_internal_error',
 ]

@@ -3,6 +3,7 @@ Error page template with professional mobile-app design.
 """
 
 from typing import Optional
+from ..utils.format import escape_html as _escape_html
 
 
 def render_error(
@@ -30,7 +31,7 @@ def render_error(
     if details:
         details_html = f"""
         <div style="margin-top: 24px; padding: 16px; background: var(--bg-tertiary); border-radius: var(--radius); text-align: left;">
-            <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word; font-size: 13px; color: var(--text-secondary);">{details}</pre>
+            <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word; font-size: 13px; color: var(--text-secondary);">{_escape_html(details)}</pre>
         </div>"""
 
     request_id_html = ""
@@ -74,68 +75,6 @@ if ({status_code} >= 500) {{
 """
 
     return html
-
-
-def render_not_found(path: str) -> str:
-    """
-    Render 404 not found page.
-
-    Args:
-        path: Requested path
-
-    Returns:
-        HTML string
-    """
-    return render_error(
-        status_code=404,
-        message=f"The file <strong>{path}</strong> could not be found.",
-        details=None,
-    )
-
-
-def render_forbidden(path: str) -> str:
-    """
-    Render 403 forbidden page.
-
-    Args:
-        path: Requested path
-
-    Returns:
-        HTML string
-    """
-    return render_error(
-        status_code=403,
-        message=f"You don't have permission to access <strong>{path}</strong>.",
-        details=None,
-    )
-
-
-def render_internal_error(error: Exception, request_id: Optional[str] = None) -> str:
-    """
-    Render 500 internal error page.
-
-    Args:
-        error: Exception object
-        request_id: Request ID
-
-    Returns:
-        HTML string
-    """
-    import traceback
-
-    details = None
-    try:
-        details = traceback.format_exc()
-    except:
-        pass
-
-    return render_error(
-        status_code=500,
-        message="Something went wrong. Please try again later.",
-        details=details,
-        request_id=request_id,
-    )
-
 
 def _get_error_icon(status_code: int) -> str:
     """Get icon for error status code."""

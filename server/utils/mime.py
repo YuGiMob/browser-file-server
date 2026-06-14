@@ -199,23 +199,6 @@ def is_text_mime_type(mime_type: Optional[str]) -> bool:
 def is_image_mime_type(mime_type: Optional[str]) -> bool:
     """Check if MIME type is an image."""
     return mime_type in IMAGE_MIME_TYPES
-
-
-def is_video_mime_type(mime_type: Optional[str]) -> bool:
-    """Check if MIME type is a video."""
-    return mime_type in VIDEO_MIME_TYPES
-
-
-def is_audio_mime_type(mime_type: Optional[str]) -> bool:
-    """Check if MIME type is audio."""
-    return mime_type in AUDIO_MIME_TYPES
-
-
-def is_archive_mime_type(mime_type: Optional[str]) -> bool:
-    """Check if MIME type is an archive."""
-    return mime_type in ARCHIVE_MIME_TYPES
-
-
 def get_content_disposition(filename: str, mime_type: Optional[str] = None) -> str:
     """
     Get Content-Disposition header value.

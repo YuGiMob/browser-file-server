@@ -11,7 +11,7 @@ from pathlib import Path
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from server.security import PathSecurity, RateLimiter, IPFilter, CSRFProtection
+from server.security import PathSecurity, RateLimiter, IPFilter, SecurityHeaders, get_client_ip
 
 
 class TestPathSecurity(unittest.TestCase):
@@ -131,35 +131,84 @@ class TestIPFilter(unittest.TestCase):
         self.assertTrue(ip_filter.is_allowed("192.168.1.2"))
 
 
-class TestCSRFProtection(unittest.TestCase):
-    """Test CSRF protection."""
+class TestSecurityHeaders(unittest.TestCase):
+    """Test security headers."""
 
-    def test_generate_token(self):
-        """Test token generation."""
-        csrf = CSRFProtection(secret="test-secret")
-        token = csrf.generate_token()
-        self.assertIsNotNone(token)
-        self.assertIn(".", token)
+    def test_get_headers_default(self):
+        """Test default security headers."""
+        headers = SecurityHeaders.get_headers()
+        self.assertIn('X-Content-Type-Options', headers)
+        self.assertEqual(headers['X-Content-Type-Options'], 'nosniff')
+        self.assertIn('X-Frame-Options', headers)
+        self.assertEqual(headers['X-Frame-Options'], 'DENY')
+        self.assertIn('Content-Security-Policy', headers)
 
-    def test_validate_token(self):
-        """Test token validation."""
-        csrf = CSRFProtection(secret="test-secret")
-        token = csrf.generate_token()
-        self.assertTrue(csrf.validate_token(token))
+    def test_get_headers_no_csp(self):
+        """Test headers without CSP."""
+        headers = SecurityHeaders.get_headers(csp_enabled=False)
+        self.assertNotIn('Content-Security-Policy', headers)
+        self.assertIn('X-Content-Type-Options', headers)
 
-    def test_invalid_token(self):
-        """Test invalid token."""
-        csrf = CSRFProtection(secret="test-secret")
-        self.assertFalse(csrf.validate_token("invalid-token"))
+    def test_get_headers_hsts(self):
+        """Test headers with HSTS."""
+        headers = SecurityHeaders.get_headers(hsts_enabled=True)
+        self.assertIn('Strict-Transport-Security', headers)
+        self.assertIn('max-age', headers['Strict-Transport-Security'])
 
-    def test_tampered_token(self):
-        """Test tampered token."""
-        csrf = CSRFProtection(secret="test-secret")
-        token = csrf.generate_token()
-        # Tamper with token
-        tampered = token[:-5] + "XXXXX"
-        self.assertFalse(csrf.validate_token(tampered))
 
+class TestGetClientIp(unittest.TestCase):
+    """Test client IP extraction."""
+
+    def _make_handler(self, headers=None, client_addr=('127.0.0.1', 12345)):
+        """Create a mock handler."""
+        from unittest.mock import MagicMock
+        handler = MagicMock()
+        handler.headers = headers or {}
+        handler.client_address = client_addr
+        return handler
+
+    def test_direct_connection(self):
+        """Test IP from direct connection."""
+        handler = self._make_handler()
+        self.assertEqual(get_client_ip(handler), '127.0.0.1')
+
+    def test_x_forwarded_for(self):
+        """Test IP from X-Forwarded-For header."""
+        handler = self._make_handler(headers={'X-Forwarded-For': '10.0.0.1, 192.168.1.1'})
+        self.assertEqual(get_client_ip(handler), '10.0.0.1')
+
+    def test_x_real_ip(self):
+        """Test IP from X-Real-IP header."""
+        handler = self._make_handler(headers={'X-Real-IP': '10.0.0.2'})
+        self.assertEqual(get_client_ip(handler), '10.0.0.2')
+
+    def test_forwarded_for_takes_priority(self):
+        """Test X-Forwarded-For takes priority over X-Real-IP."""
+        handler = self._make_handler(headers={
+            'X-Forwarded-For': '10.0.0.1',
+            'X-Real-IP': '10.0.0.2'
+        })
+        self.assertEqual(get_client_ip(handler), '10.0.0.1')
+
+    def test_invalid_forwarded_for(self):
+        """Test fallback when X-Forwarded-For has invalid IP."""
+        handler = self._make_handler(headers={'X-Forwarded-For': 'not-an-ip'})
+        self.assertEqual(get_client_ip(handler), '127.0.0.1')
+
+
+class TestRateLimiterCleanup(unittest.TestCase):
+    """Test rate limiter cleanup."""
+
+    def test_cleanup_removes_old_entries(self):
+        """Test that cleanup removes old entries."""
+        limiter = RateLimiter(requests_per_minute=60, burst=10)
+        # Add some entries
+        limiter.is_allowed('192.168.1.1')
+        limiter.is_allowed('192.168.1.2')
+        self.assertEqual(len(limiter.buckets), 2)
+        # Cleanup with max_age=0 should remove all
+        limiter.cleanup(max_age=0)
+        self.assertEqual(len(limiter.buckets), 0)
 
 if __name__ == "__main__":
     unittest.main()

@@ -2,8 +2,6 @@
 Base HTML template with professional mobile-app design.
 """
 
-from typing import Dict, Optional
-from urllib.parse import quote
 
 
 def get_head(title: str, theme: str = "dark") -> str:

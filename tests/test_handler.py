@@ -12,7 +12,7 @@ from pathlib import Path
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from server.config import Config, ServerConfig, SecurityConfig, FeaturesConfig, UIConfig, LoggingConfig
+from server.config import Config, ServerConfig, SecurityConfig, FeaturesConfig, UIConfig, LoggingConfig, RateLimitConfig
 from server.storage import Storage
 
 
@@ -24,7 +24,7 @@ class TestHandlerIntegration(unittest.TestCase):
         self.root = Path(tempfile.mkdtemp())
         self.config = Config(
             server=ServerConfig(root=str(self.root)),
-            security=SecurityConfig(),
+            security=SecurityConfig(rate_limit=RateLimitConfig(enabled=False)),
             features=FeaturesConfig(),
             ui=UIConfig(),
             logging=LoggingConfig(),
