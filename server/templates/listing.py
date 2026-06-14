@@ -306,7 +306,7 @@ def _render_file_item(file_info: FileInfo, current_path: str, features: dict) ->
     return f'''
     <div class="file-group" style="margin-bottom: 2px;">
         <div class="file-item" data-path="{file_info.path}">
-            <div class="file-checkbox hidden" onclick="toggleFileSelect('{file_info.path}', this)"></div>
+            <div class="file-checkbox hidden" onclick="event.stopPropagation(); toggleFileSelect('{file_info.path}', this)"></div>
             <div class="{icon_class}">{icon}</div>
             <div class="file-info">
                 <div class="{name_class}">{link}</div>
