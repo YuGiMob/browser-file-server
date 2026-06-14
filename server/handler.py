@@ -499,6 +499,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
         """Handle search request."""
         query = params.get("q", "")
         rel_path = params.get("p", "")
+        show_hidden = params.get("hidden", "1" if self.config.ui.show_hidden else "0") == "1"
 
         if not query:
             self._send_redirect(f"/?p={quote(rel_path)}")
@@ -512,7 +513,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
             return
 
         # Search
-        results = self.storage.search(query, search_path)
+        results = self.storage.search(query, search_path, show_hidden=show_hidden)
 
         # Render results
         html = render_listing(
@@ -520,7 +521,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
             current_path=rel_path,
             search_query=query,
             sort_by="name",
-            show_hidden=self.config.ui.show_hidden,
+            show_hidden=show_hidden,
             flash_message=f"Found {len(results)} results for '{escape_html(query)}'",
             flash_type="info",
             features={

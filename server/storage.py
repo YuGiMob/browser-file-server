@@ -339,6 +339,7 @@ class Storage:
         query: str,
         path: Optional[Path] = None,
         max_results: int = 100,
+        show_hidden: Optional[bool] = None,
     ) -> List[FileInfo]:
         """
         Search for files by name.
@@ -347,6 +348,7 @@ class Storage:
             query: Search query
             path: Directory to search in (default: root)
             max_results: Maximum number of results
+            show_hidden: Override show_hidden setting (default: use instance setting)
 
         Returns:
             List of matching FileInfo objects
@@ -354,8 +356,9 @@ class Storage:
         search_path = path or self.root
         query_lower = query.lower()
         results = []
+        show = show_hidden if show_hidden is not None else self.show_hidden
 
-        for item in self._walk_directory(search_path):
+        for item in self._walk_directory(search_path, show_hidden=show):
             if query_lower in item.name.lower():
                 results.append(item)
                 if len(results) >= max_results:
@@ -363,12 +366,13 @@ class Storage:
 
         return results
 
-    def _walk_directory(self, path: Path) -> Generator[FileInfo, None, None]:
+    def _walk_directory(self, path: Path, show_hidden: Optional[bool] = None) -> Generator[FileInfo, None, None]:
         """Walk directory recursively."""
+        show = show_hidden if show_hidden is not None else self.show_hidden
         try:
             for item in path.iterdir():
                 # Skip hidden files if not showing them
-                if not self.show_hidden and item.name.startswith('.'):
+                if not show and item.name.startswith('.'):
                     continue
 
                 info = self.get_file_info(item)
@@ -376,7 +380,7 @@ class Storage:
                     yield info
 
                     if item.is_dir():
-                        yield from self._walk_directory(item)
+                        yield from self._walk_directory(item, show_hidden=show)
         except (PermissionError, OSError):
             pass
 
