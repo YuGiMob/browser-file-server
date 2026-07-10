@@ -7,7 +7,7 @@ from urllib.parse import quote
 
 from ..storage import FileInfo, format_size, get_icon_for_file
 from ..utils.format import escape_html
-
+from ..utils.path import get_parent_path
 
 def render_listing(
     files: List[FileInfo],
@@ -77,7 +77,7 @@ def render_listing(
 <div class="header">
     <div class="header-content">
         <div class="header-top">
-            <a href="/?p={quote(_get_parent_path(current_path))}" class="btn-icon">\u2b06\ufe0f</a>
+            <a href="/?p={quote(get_parent_path(current_path))}" class="btn-icon">⬆️</a>
             <span class="header-title">{escape_html(_get_display_name(current_path))}</span>
             <div class="header-actions">
                 <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">\U0001f313</button>
@@ -287,12 +287,6 @@ def _build_breadcrumb(path: str) -> str:
             html += f'<span class="separator">/</span><a href="/?p={encoded}">{escape_html(part)}</a>'
     return html
 
-
-def _get_parent_path(path: str) -> str:
-    if not path:
-        return ""
-    parts = path.rstrip('/').split('/')
-    return '/'.join(parts[:-1])
 
 
 def _get_display_name(path: str) -> str:

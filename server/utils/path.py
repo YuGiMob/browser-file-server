@@ -4,7 +4,7 @@ Path utilities.
 
 from pathlib import Path
 from urllib.parse import quote, unquote
-
+from .format import escape_html
 
 def normalize_path(path: str) -> str:
     """
@@ -85,6 +85,46 @@ def get_parent_path(path: str) -> str:
         return ''
 
     return '/'.join(parts[:-1])
+
+
+def build_path_breadcrumb(path: str) -> str:
+    """
+    Build breadcrumb HTML for a file path (used in editor/preview).
+    """
+    if not path:
+        return ""
+    parts = path.strip('/').split('/')
+    html = ""
+    current = ""
+    for i, part in enumerate(parts):
+        if i == len(parts) - 1:
+            html += f'<span class="separator">/</span><span class="current">{escape_html(part)}</span>'
+        else:
+            current += "/" + part if current else part
+            encoded = quote(current)
+            html += f'<span class="separator">/</span><a href="/?p={encoded}">{escape_html(part)}</a>'
+    return html
+
+
+def build_breadcrumb(path: str) -> str:
+    """
+    Build breadcrumb HTML for a directory path (used in listing).
+    """
+    if not path:
+        return '<span class="current">/</span>'
+    parts = path.strip('/').split('/')
+    html = '<a href="/">/</a>'
+    current = ""
+    for i, part in enumerate(parts):
+        current += "/" + part if current else part
+        encoded = quote(current)
+        if i == len(parts) - 1:
+            html += f'<span class="separator">/</span><span class="current">{escape_html(part)}</span>'
+        else:
+            html += f'<span class="separator">/</span><a href="/?p={encoded}">{escape_html(part)}</a>'
+    return html
+
+
 def get_extension(filename: str) -> str:
     """
     Get file extension.

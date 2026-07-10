@@ -4,6 +4,9 @@ Base HTML template with professional mobile-app design.
 
 
 
+from .. import __version__
+
+
 def get_head(title: str, theme: str = "dark") -> str:
     """
     Get HTML head section.
@@ -1086,7 +1089,7 @@ def get_head(title: str, theme: str = "dark") -> str:
 </head>"""
 
 
-def get_footer(version: str = "2.0.0") -> str:
+def get_footer(version: str = __version__) -> str:
     """
     Get HTML footer.
 
@@ -1209,7 +1212,7 @@ document.addEventListener('click', function(e) {{
 </html>"""
 
 
-def get_base_html(title: str, content: str, theme: str = "dark", version: str = "2.0.0") -> str:
+def get_base_html(title: str, content: str, theme: str = "dark", version: str = __version__) -> str:
     """
     Get complete HTML page.
 

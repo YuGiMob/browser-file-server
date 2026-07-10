@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import List, Dict, Optional, Generator, Any
 from dataclasses import dataclass
 import mimetypes
-import mimetypes
 
 from .utils.format import format_size, format_time
 

@@ -9,6 +9,7 @@ Handles all HTTP requests including:
 """
 
 import os
+import shutil
 import time
 import uuid
 import hmac
@@ -19,6 +20,7 @@ from typing import Dict, Optional, Tuple
 from urllib.parse import urlparse, parse_qs, quote
 from pathlib import Path
 
+from . import __version__
 from .config import Config
 from .security import (
     PathSecurity, RateLimiter, IPFilter,
@@ -132,6 +134,40 @@ class FileServerHandler(BaseHTTPRequestHandler):
 
         if self.command != "HEAD":
             self.wfile.write(body)
+
+    def _send_file_stream(
+        self,
+        file_path: Path,
+        content_type: str,
+        extra_headers: Optional[Dict[str, str]] = None,
+    ):
+        """Send a file as a streaming response (avoids loading into memory)."""
+        stat = file_path.stat()
+        file_size = stat.st_size
+
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(file_size))
+        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+        self.send_header("X-Request-ID", self.request_id)
+
+        for key, value in self.security_headers.get_headers().items():
+            self.send_header(key, value)
+
+        if extra_headers:
+            for key, value in extra_headers.items():
+                self.send_header(key, value)
+
+        self.end_headers()
+
+        if self.command == "HEAD":
+            return
+
+        try:
+            with open(file_path, "rb") as f:
+                shutil.copyfileobj(f, self.wfile)
+        except (OSError, PermissionError) as e:
+            logger.error(f"Error streaming file: {e}")
 
     def _send_html(self, status: int, html: str, title: str = "File Server"):
         """Send HTML response wrapped in base template."""
@@ -412,7 +448,10 @@ class FileServerHandler(BaseHTTPRequestHandler):
         rel_path = params.get("p", "")
         sort_by = params.get("sort", self.config.ui.default_sort)
         show_hidden = params.get("hidden", "1" if self.config.ui.show_hidden else "0") == "1"
-        page = int(params.get("page", "1"))
+        try:
+            page = int(params.get("page", "1"))
+        except ValueError:
+            page = 1
 
         # Check if edit mode
         if "edit" in params and rel_path and not rel_path.endswith("/"):
@@ -577,11 +616,9 @@ class FileServerHandler(BaseHTTPRequestHandler):
             "Content-Length": str(stat.st_size),
         }
 
-        # Send file
+        # Send file using streaming to avoid loading into memory
         try:
-            with open(target, "rb") as f:
-                content = f.read()
-            self._send_response(200, content, mime_type, extra_headers)
+            self._send_file_stream(target, mime_type, extra_headers)
         except (OSError, PermissionError) as e:
             self._send_error(500, f"Error reading file: {e}")
 
@@ -692,7 +729,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
         import json
         data = {
             "status": "healthy",
-            "version": "2.0.0",
+            "version": __version__,
             "uptime": time.time() - self.start_time,
         }
         self._send_response(200, json.dumps(data).encode("utf-8"), "application/json")

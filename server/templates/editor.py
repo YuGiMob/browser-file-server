@@ -3,9 +3,8 @@ File editor template with professional mobile-app design.
 """
 
 from urllib.parse import quote
-
 from ..utils.format import escape_html
-
+from ..utils.path import get_parent_path, build_path_breadcrumb
 
 def render_editor(
     file_path: str,
@@ -47,7 +46,7 @@ def render_editor(
 <div class="header">
     <div class="header-content">
         <div class="header-top">
-            <a href="/?p={quote(_get_parent_path(file_path))}" class="btn-icon">←</a>
+            <a href="/?p={quote(get_parent_path(file_path))}" class="btn-icon">←</a>
             <span class="header-title">{safe_file_name}</span>
             <div class="header-actions">
                 <a href="/?p={encoded_path}" class="btn-icon" title="View">👁️</a>
@@ -57,7 +56,7 @@ def render_editor(
         </div>
         <div class="breadcrumb">
             <a href="/">/</a>
-            {_build_path_breadcrumb(file_path)}
+            {build_path_breadcrumb(file_path)}
         </div>
     </div>
 </div>
@@ -210,35 +209,6 @@ updateCounts();
 
     return html
 
-
-def _get_parent_path(path: str) -> str:
-    """Get parent directory path."""
-    if not path:
-        return ""
-    parts = path.rstrip('/').split('/')
-    return '/'.join(parts[:-1])
-
-
-def _build_path_breadcrumb(path: str) -> str:
-    """Build breadcrumb for file path."""
-    if not path:
-        return ""
-
-    parts = path.strip('/').split('/')
-    html = ""
-    current = ""
-
-    for i, part in enumerate(parts):
-        if i == len(parts) - 1:
-            # Last part (filename) - not a link
-            html += f'<span class="separator">/</span><span class="current">{escape_html(part)}</span>'
-        else:
-            current += "/" + part if current else part
-            from urllib.parse import quote as url_quote
-            encoded = url_quote(current)
-            html += f'<span class="separator">/</span><a href="/?p={encoded}">{escape_html(part)}</a>'
-
-    return html
 
 
 def _get_language_hint(ext: str) -> str:
