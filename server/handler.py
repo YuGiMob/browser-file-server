@@ -64,7 +64,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
         super().__init__(*args, **kwargs)
 
     def _get_csrf_secret(self) -> bytes:
-        return self._csrf_secret or (self._config.server.host.encode() + str(self._config.server.port).encode())
+        return self._csrf_secret
 
     def _generate_csrf_token(self) -> str:
         secret = self._get_csrf_secret()
@@ -83,6 +83,20 @@ class FileServerHandler(BaseHTTPRequestHandler):
             if hmac.compare_digest(token, expected):
                 return True
         return False
+
+    def _extract_csrf_from_multipart(self, body: bytes) -> str:
+        csrf_marker = b'name="_csrf"'
+        idx = body.find(csrf_marker)
+        if idx == -1:
+            return ''
+        header_end = body.find(b'\r\n\r\n', idx)
+        if header_end == -1:
+            return ''
+        value_start = header_end + 4
+        value_end = body.find(b'\r\n', value_start)
+        if value_end == -1:
+            return ''
+        return body[value_start:value_end].decode('utf-8').strip()
 
     def setup(self):
         super().setup()
@@ -219,24 +233,14 @@ class FileServerHandler(BaseHTTPRequestHandler):
 
     def _get_form_data(self) -> Dict[str, str]:
         content_type = self.headers.get("Content-Type", "")
-
         if content_type.startswith("application/x-www-form-urlencoded"):
             if hasattr(self, '_buffered_body') and self._buffered_body:
                 params = parse_qs(self._buffered_body.decode('utf-8'))
                 return {k: v[0] if v else "" for k, v in params.items()}
-
-            content_length = int(self.headers.get("Content-Length", 0))
-            if content_length > MAX_FORM_BODY_SIZE:
-                raise ValueError(f"Request body too large: {content_length} bytes (max {MAX_FORM_BODY_SIZE})")
-            body = self.rfile.read(content_length).decode("utf-8")
-            params = parse_qs(body)
-            return {k: v[0] if v else "" for k, v in params.items()}
-
         return {}
 
     def _get_multipart_data(self) -> Tuple[Dict[str, str], Dict[str, Tuple[str, bytes]]]:
         content_type = self.headers.get("Content-Type", "")
-
         if not content_type.startswith("multipart/form-data"):
             return {}, {}
 
@@ -244,10 +248,13 @@ class FileServerHandler(BaseHTTPRequestHandler):
         if not boundary:
             return {}, {}
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        if content_length > self.config.server.max_upload_size:
-            raise ValueError(f"Upload too large: {content_length} bytes (max {self.config.server.max_upload_size})")
-        body = self.rfile.read(content_length)
+        if not hasattr(self, '_buffered_body') or not self._buffered_body:
+            return {}, {}
+
+        body = self._buffered_body
+
+        if len(body) > self.config.server.max_upload_size:
+            raise ValueError(f"Upload too large: {len(body)} bytes (max {self.config.server.max_upload_size})")
 
         fields = {}
         files = {}
@@ -383,28 +390,38 @@ class FileServerHandler(BaseHTTPRequestHandler):
         if origin:
             if origin != expected_origin:
                 return False
-
         elif referer:
             if not referer.startswith(expected_origin):
                 return False
 
         content_type = self.headers.get('Content-Type', '')
-        if content_type.startswith('multipart/form-data'):
-            return True
+        content_length = int(self.headers.get('Content-Length', 0))
 
-        if content_type.startswith('application/x-www-form-urlencoded'):
-            try:
-                content_length = int(self.headers.get('Content-Length', 0))
-                if content_length > 0 and content_length <= MAX_FORM_BODY_SIZE:
-                    raw_body = self.rfile.read(content_length)
-                    self._buffered_body = raw_body
+        max_size = MAX_FORM_BODY_SIZE
+        if content_type.startswith('multipart/form-data'):
+            max_size = self.config.server.max_upload_size
+
+        if content_length > 0 and content_length <= max_size:
+            raw_body = self.rfile.read(content_length)
+            self._buffered_body = raw_body
+
+            if content_type.startswith('application/x-www-form-urlencoded'):
+                try:
                     params = parse_qs(raw_body.decode('utf-8'))
                     form = {k: v[0] if v else '' for k, v in params.items()}
                     token = form.get('_csrf', '')
                     if token and not self._validate_csrf_token(token):
                         return False
-            except Exception:
-                logger.warning("Error validating CSRF token", exc_info=True)
+                except Exception:
+                    logger.warning("Error validating CSRF token", exc_info=True)
+
+            elif content_type.startswith('multipart/form-data'):
+                try:
+                    token = self._extract_csrf_from_multipart(raw_body)
+                    if token and not self._validate_csrf_token(token):
+                        return False
+                except Exception:
+                    logger.warning("Error validating CSRF token in multipart", exc_info=True)
 
         return True
 
@@ -449,11 +466,22 @@ class FileServerHandler(BaseHTTPRequestHandler):
         end_idx = start_idx + per_page
         page_files = files[start_idx:end_idx]
 
+        flash_message = ""
+        flash_type = "success"
+        if "success" in params:
+            flash_message = escape_html(params["success"])
+            flash_type = "success"
+        elif "error" in params:
+            flash_message = escape_html(params["error"])
+            flash_type = "error"
+
         html = render_listing(
             files=page_files,
             current_path=rel_path,
             sort_by=sort_by,
             show_hidden=show_hidden,
+            flash_message=flash_message,
+            flash_type=flash_type,
             page=page,
             total_pages=total_pages,
             csrf_token=self.csrf_token,
@@ -860,15 +888,11 @@ class FileServerHandler(BaseHTTPRequestHandler):
         if not self._check_feature('download_zip', 'Downloads'):
             return
 
-        if hasattr(self, '_buffered_body') and self._buffered_body:
-            body = self._buffered_body.decode('utf-8')
-        else:
-            content_type = self.headers.get("Content-Type", "")
-            content_length = int(self.headers.get("Content-Length", 0))
-            if content_length > MAX_FORM_BODY_SIZE:
-                self._send_error(400, "Request body too large")
-                return
-            body = self.rfile.read(content_length).decode("utf-8")
+        if not hasattr(self, '_buffered_body') or not self._buffered_body:
+            self._send_error(400, "Request body not available")
+            return
+
+        body = self._buffered_body.decode('utf-8')
         params = parse_qs(body)
 
         current_path = params.get("p", [""])[0]

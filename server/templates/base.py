@@ -1131,21 +1131,6 @@ def _render_header(
     </div>
     {extra_html}
 </div>'''
-    return f'''
-<div class="header">
-    <div class="header-content">
-        <div class="header-top">
-            <a href="{back_url}" class="btn-icon">←</a>
-            <span class="header-title">{title}</span>
-            <div class="header-actions">
-                {actions_html}
-                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌓</button>
-            </div>
-        </div>
-        <div class="breadcrumb">{breadcrumb_html}</div>
-    </div>
-    {extra_html}
-</div>'''
     """
     Get HTML head section.
 

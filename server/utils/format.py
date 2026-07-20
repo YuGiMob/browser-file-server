@@ -49,9 +49,6 @@ def format_permissions(mode: int) -> str:
         perms.append(c if mode & (1 << (8 - i)) else '-')
     return ''.join(perms)
 
-    return ''.join(perms)
-
-
 def escape_html(text: str) -> str:
     """
     Escape HTML special characters.
