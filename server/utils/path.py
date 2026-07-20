@@ -87,14 +87,18 @@ def get_parent_path(path: str) -> str:
     return '/'.join(parts[:-1])
 
 
-def build_path_breadcrumb(path: str) -> str:
+def build_path_breadcrumb(path: str, with_root: bool = False) -> str:
     """
-    Build breadcrumb HTML for a file path (used in editor/preview).
+    Build breadcrumb HTML for a file path.
+    
+    Args:
+        path: File or directory path
+        with_root: If True, include root link (<a href="/">/</a>)
     """
     if not path:
-        return ""
+        return '<span class="current">/</span>' if with_root else ""
     parts = path.strip('/').split('/')
-    html = ""
+    html = '<a href="/">/</a>' if with_root else ""
     current = ""
     for i, part in enumerate(parts):
         if i == len(parts) - 1:
@@ -106,38 +110,8 @@ def build_path_breadcrumb(path: str) -> str:
     return html
 
 
-def build_breadcrumb(path: str) -> str:
-    """
-    Build breadcrumb HTML for a directory path (used in listing).
-    """
-    if not path:
-        return '<span class="current">/</span>'
-    parts = path.strip('/').split('/')
-    html = '<a href="/">/</a>'
-    current = ""
-    for i, part in enumerate(parts):
-        current += "/" + part if current else part
-        encoded = quote(current)
-        if i == len(parts) - 1:
-            html += f'<span class="separator">/</span><span class="current">{escape_html(part)}</span>'
-        else:
-            html += f'<span class="separator">/</span><a href="/?p={encoded}">{escape_html(part)}</a>'
-    return html
 
 
-def get_extension(filename: str) -> str:
-    """
-    Get file extension.
-
-    Args:
-        filename: Filename
-
-    Returns:
-        Extension with dot (e.g., '.txt')
-    """
-    if '.' in filename:
-        return '.' + filename.rsplit('.', 1)[1].lower()
-    return ''
 
 
 def is_safe_path(path: str) -> bool:

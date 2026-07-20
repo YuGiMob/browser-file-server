@@ -18,7 +18,7 @@ from typing import List, Dict, Optional, Generator, Any
 from dataclasses import dataclass
 import mimetypes
 
-from .utils.format import format_size, format_time
+from .utils.format import format_size, format_time, format_permissions
 
 
 @dataclass
@@ -123,7 +123,7 @@ class Storage:
             is_text = self.is_text_file(path)
 
         # Get permissions string
-        permissions = self._format_permissions(stat.st_mode)
+        permissions = format_permissions(stat.st_mode)
 
         return FileInfo(
             name=name,
@@ -458,23 +458,6 @@ class Storage:
         except (OSError, PermissionError):
             return False
 
-    @staticmethod
-    def _format_permissions(mode: int) -> str:
-        """Format file permissions as string."""
-        perms = []
-        # Owner
-        perms.append('r' if mode & 0o400 else '-')
-        perms.append('w' if mode & 0o200 else '-')
-        perms.append('x' if mode & 0o100 else '-')
-        # Group
-        perms.append('r' if mode & 0o040 else '-')
-        perms.append('w' if mode & 0o020 else '-')
-        perms.append('x' if mode & 0o010 else '-')
-        # Other
-        perms.append('r' if mode & 0o004 else '-')
-        perms.append('w' if mode & 0o002 else '-')
-        perms.append('x' if mode & 0o001 else '-')
-        return ''.join(perms)
 
 
 

@@ -218,13 +218,23 @@ class TestHTTPIntegration(unittest.TestCase):
         cls.server_thread.daemon = True
         cls.server_thread.start()
         
-        # Wait for server to start
-        time.sleep(0.5)
+        # Wait for server to start by polling health endpoint
+        import urllib.error
+        for _ in range(20):
+            try:
+                req = urllib.request.Request(f'http://127.0.0.1:{cls.port}/health')
+                urllib.request.urlopen(req, timeout=1)
+                break
+            except (urllib.error.URLError, ConnectionError):
+                time.sleep(0.25)
+        else:
+            raise RuntimeError('Server failed to start within 5 seconds')
 
     @classmethod
     def tearDownClass(cls):
         """Clean up test server."""
         cls.server.shutdown()
+        cls.server.server_close()
         import shutil
         shutil.rmtree(cls.temp_dir, ignore_errors=True)
 
@@ -386,11 +396,22 @@ class TestBatchOperations(unittest.TestCase):
         self.server_thread = threading.Thread(target=self.server.serve_forever)
         self.server_thread.daemon = True
         self.server_thread.start()
-        time.sleep(0.5)
+        # Wait for server to start by polling health endpoint
+        import urllib.error
+        for _ in range(20):
+            try:
+                req = urllib.request.Request(f'http://127.0.0.1:{self.port}/health')
+                urllib.request.urlopen(req, timeout=1)
+                break
+            except (urllib.error.URLError, ConnectionError):
+                time.sleep(0.25)
+        else:
+            raise RuntimeError('Server failed to start within 5 seconds')
 
     def tearDown(self):
         """Clean up test fixtures."""
         self.server.shutdown()
+        self.server.server_close()
         import shutil
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 

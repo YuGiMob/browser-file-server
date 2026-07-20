@@ -7,7 +7,7 @@ from urllib.parse import quote
 
 from ..storage import FileInfo, format_size, get_icon_for_file
 from ..utils.format import escape_html
-from ..utils.path import get_parent_path
+from ..utils.path import get_parent_path, build_path_breadcrumb
 
 def render_listing(
     files: List[FileInfo],
@@ -27,7 +27,7 @@ def render_listing(
     """
     features = features or {}
     encoded_path = quote(current_path)
-    breadcrumb = _build_breadcrumb(current_path)
+    breadcrumb = build_path_breadcrumb(current_path, with_root=True)
     
     flash_html = ""
     if flash_message:
@@ -272,20 +272,6 @@ if (uploadZone) {{
     return html
 
 
-def _build_breadcrumb(path: str) -> str:
-    if not path:
-        return '<span class="current">/</span>'
-    parts = path.strip('/').split('/')
-    html = '<a href="/">/</a>'
-    current = ""
-    for i, part in enumerate(parts):
-        current += "/" + part if current else part
-        encoded = quote(current)
-        if i == len(parts) - 1:
-            html += f'<span class="separator">/</span><span class="current">{escape_html(part)}</span>'
-        else:
-            html += f'<span class="separator">/</span><a href="/?p={encoded}">{escape_html(part)}</a>'
-    return html
 
 
 
