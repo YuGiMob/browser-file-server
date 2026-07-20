@@ -24,7 +24,6 @@ DEFAULTS = {
         "port": 8080,
         "root": "~",
         "max_upload_size": 100 * 1024 * 1024,  # 100MB
-        "workers": 1,
         "timeout": 30,
     },
     "security": {
@@ -81,7 +80,6 @@ class ServerConfig:
     port: int = 8080
     root: str = "~"
     max_upload_size: int = 100 * 1024 * 1024
-    workers: int = 1
     timeout: int = 30
 
 
@@ -421,7 +419,6 @@ def build_config() -> Config:
             port=config_dict["server"]["port"],
             root=config_dict["server"]["root"],
             max_upload_size=config_dict["server"]["max_upload_size"],
-            workers=config_dict["server"]["workers"],
             timeout=config_dict["server"]["timeout"],
         ),
         security=SecurityConfig(

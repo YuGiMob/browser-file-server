@@ -210,5 +210,86 @@ class TestRateLimiterCleanup(unittest.TestCase):
         limiter.cleanup(max_age=0)
         self.assertEqual(len(limiter.buckets), 0)
 
+
+class TestCSRFProtection(unittest.TestCase):
+    """Test CSRF token validation."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        from unittest.mock import MagicMock
+        import hmac
+        import hashlib
+        import time
+        self.hmac = hmac
+        self.hashlib = hashlib
+        self.time = time
+
+    def _make_handler(self, secret=b'test-secret-32-bytes-long!', client_addr=('127.0.0.1', 12345)):
+        """Create a mock handler with CSRF secret."""
+        from unittest.mock import MagicMock
+        handler = MagicMock()
+        handler._csrf_secret = secret
+        handler.client_address = client_addr
+        return handler
+
+    def _generate_token(self, handler, offset=0):
+        """Generate a CSRF token for testing."""
+        window = str(int(self.time.time()) // 3600 + offset)
+        client_ip = handler.client_address[0]
+        return self.hmac.new(
+            handler._csrf_secret,
+            f"{client_ip}:{window}".encode(),
+            self.hashlib.sha256
+        ).hexdigest()[:32]
+
+    def test_validate_valid_token(self):
+        """Test validation of a valid CSRF token."""
+        from server.handler import FileServerHandler
+        handler = self._make_handler()
+        token = self._generate_token(handler)
+        result = FileServerHandler._validate_csrf_token(handler, token)
+        self.assertTrue(result)
+
+    def test_validate_invalid_token(self):
+        """Test validation of an invalid CSRF token."""
+        from server.handler import FileServerHandler
+        handler = self._make_handler()
+        result = FileServerHandler._validate_csrf_token(handler, 'invalid-token')
+        self.assertFalse(result)
+
+    def test_validate_empty_token(self):
+        """Test validation of an empty CSRF token."""
+        from server.handler import FileServerHandler
+        handler = self._make_handler()
+        result = FileServerHandler._validate_csrf_token(handler, '')
+        self.assertFalse(result)
+
+    def test_validate_token_previous_window(self):
+        """Test validation of a token from the previous time window."""
+        from server.handler import FileServerHandler
+        handler = self._make_handler()
+        token = self._generate_token(handler, offset=-1)
+        result = FileServerHandler._validate_csrf_token(handler, token)
+        self.assertTrue(result)
+
+    def test_validate_token_wrong_secret(self):
+        """Test validation fails with wrong secret."""
+        from server.handler import FileServerHandler
+        handler = self._make_handler(secret=b'different-secret-value-here!')
+        token = self._generate_token(handler)
+        # Validate with a handler that has a different secret
+        validator = self._make_handler(secret=b'another-secret-value-here!')
+        result = FileServerHandler._validate_csrf_token(validator, token)
+        self.assertFalse(result)
+
+    def test_validate_token_wrong_ip(self):
+        """Test validation fails with different client IP."""
+        from server.handler import FileServerHandler
+        handler = self._make_handler(client_addr=('10.0.0.1', 12345))
+        token = self._generate_token(handler)
+        # Validate from a different IP
+        validator = self._make_handler(client_addr=('10.0.0.2', 12345))
+        result = FileServerHandler._validate_csrf_token(validator, token)
+        self.assertFalse(result)
 if __name__ == "__main__":
     unittest.main()

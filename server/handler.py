@@ -14,6 +14,8 @@ import time
 import uuid
 import hmac
 import hashlib
+import json
+from email.utils import parsedate_to_datetime
 import logging
 from http.server import BaseHTTPRequestHandler
 from typing import Dict, Optional, Tuple
@@ -48,6 +50,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
     _rate_limiter: Optional[RateLimiter] = None
     _ip_filter: Optional[IPFilter] = None
     _security_headers: Optional[SecurityHeaders] = None
+    _csrf_secret: Optional[bytes] = None
 
     def __init__(self, *args, **kwargs):
         """Initialize handler with configuration."""
@@ -69,7 +72,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
 
     def _generate_csrf_token(self) -> str:
         """Generate a stateless CSRF token using HMAC."""
-        secret = self._config.server.host.encode() + str(self._config.server.port).encode()
+        secret = self._csrf_secret or (self._config.server.host.encode() + str(self._config.server.port).encode())
         # Token valid for ~1 hour windows
         window = str(int(time.time()) // 3600)
         client_ip = self.client_address[0] if hasattr(self, 'client_address') else '0.0.0.0'
@@ -80,7 +83,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
         if not token:
             return False
         # Accept current window and previous window (for clock skew)
-        secret = self._config.server.host.encode() + str(self._config.server.port).encode()
+        secret = self._csrf_secret or (self._config.server.host.encode() + str(self._config.server.port).encode())
         client_ip = self.client_address[0]
         for offset in (0, -1):
             window = str((int(time.time()) // 3600) + offset)
@@ -148,6 +151,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(file_size))
+        self.send_header("Last-Modified", time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime(stat.st_mtime)))
         self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
         self.send_header("X-Request-ID", self.request_id)
 
@@ -167,7 +171,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
             with open(file_path, "rb") as f:
                 shutil.copyfileobj(f, self.wfile)
         except (OSError, PermissionError) as e:
-            logger.error(f"Error streaming file: {e}")
+            logger.exception(f"Error streaming file: {e}")
 
     def _send_html(self, status: int, html: str, title: str = "File Server"):
         """Send HTML response wrapped in base template."""
@@ -435,7 +439,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
                     if token and not self._validate_csrf_token(token):
                         return False
             except Exception:
-                pass
+                logger.warning("Error validating CSRF token", exc_info=True)
 
         return True
 
@@ -573,7 +577,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
             try:
                 content = target.read_text(encoding="utf-8", errors="replace")
             except (OSError, PermissionError, UnicodeDecodeError):
-                pass
+                logger.warning(f"Could not read file content for preview: {rel_path}")
 
         # Render preview
         html = render_preview(
@@ -609,11 +613,27 @@ class FileServerHandler(BaseHTTPRequestHandler):
         # Get file info
         stat = target.stat()
         mime_type = guess_mime_type(target.name) or "application/octet-stream"
+        last_modified = time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime(stat.st_mtime))
+
+        # Check If-Modified-Since for conditional requests
+        if_modified_since = self.headers.get('If-Modified-Since')
+        if if_modified_since:
+            try:
+                ims_dt = parsedate_to_datetime(if_modified_since)
+                if ims_dt.timestamp() >= stat.st_mtime:
+                    self.send_response(304)
+                    self.send_header("Last-Modified", last_modified)
+                    self.send_header("X-Request-ID", self.request_id)
+                    self.end_headers()
+                    return
+            except (ValueError, TypeError, OverflowError):
+                pass
 
         # Set headers
         extra_headers = {
             "Content-Disposition": get_content_disposition(target.name, mime_type),
             "Content-Length": str(stat.st_size),
+            "Last-Modified": last_modified,
         }
 
         # Send file using streaming to avoid loading into memory
@@ -715,7 +735,6 @@ class FileServerHandler(BaseHTTPRequestHandler):
         files = self.storage.list_directory(target, sort_by=sort_by)
 
         # Convert to JSON
-        import json
         data = [f.to_dict() for f in files]
 
         self._send_response(
@@ -726,7 +745,6 @@ class FileServerHandler(BaseHTTPRequestHandler):
 
     def _handle_health(self):
         """Handle health check request."""
-        import json
         data = {
             "status": "healthy",
             "version": __version__,
@@ -798,11 +816,24 @@ class FileServerHandler(BaseHTTPRequestHandler):
 
             # Save file
             target_file = target_dir / safe_name
+            # Avoid overwriting existing files
+            if target_file.exists():
+                stem = target_file.stem
+                suffix = target_file.suffix
+                counter = 1
+                while True:
+                    new_name = f"{stem}_{counter}{suffix}"
+                    candidate = target_dir / new_name
+                    if not candidate.exists():
+                        target_file = candidate
+                        safe_name = new_name
+                        break
+                    counter += 1
             try:
                 target_file.write_bytes(data)
                 saved.append(safe_name)
             except (OSError, PermissionError) as e:
-                logger.error(f"Error saving file {safe_name}: {e}")
+                logger.exception(f"Error saving file {safe_name}: {e}")
 
         # Redirect
         if saved:
@@ -871,7 +902,6 @@ class FileServerHandler(BaseHTTPRequestHandler):
         # Delete
         try:
             if target.is_dir():
-                import shutil
                 shutil.rmtree(target)
             else:
                 target.unlink()
@@ -908,7 +938,6 @@ class FileServerHandler(BaseHTTPRequestHandler):
 
         # Move
         try:
-            import shutil
             dest_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(source_path), str(dest_path))
 
@@ -944,7 +973,6 @@ class FileServerHandler(BaseHTTPRequestHandler):
 
         # Copy
         try:
-            import shutil
             dest_path.parent.mkdir(parents=True, exist_ok=True)
             if source_path.is_dir():
                 shutil.copytree(str(source_path), str(dest_path))
@@ -992,6 +1020,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
                 if target.exists():
                     paths.append(target)
             except ValueError:
+                logger.warning(f"Skipping invalid path in download selection: {file_path}")
                 continue
 
         if not paths:
@@ -1040,11 +1069,18 @@ def create_handler_class(config: Config):
 
     security_headers = SecurityHeaders()
 
+    # Generate CSRF secret (random, overridable via env var)
+    csrf_secret_str = os.environ.get('FILESERVER_CSRF_SECRET')
+    if csrf_secret_str:
+        csrf_secret = bytes.fromhex(csrf_secret_str)
+    else:
+        csrf_secret = os.urandom(32)
+
     class ConfiguredHandler(FileServerHandler):
         # Class-level shared state
         _config = config
         _rate_limiter = rate_limiter
         _ip_filter = ip_filter
         _security_headers = security_headers
-
+        _csrf_secret = csrf_secret
     return ConfiguredHandler

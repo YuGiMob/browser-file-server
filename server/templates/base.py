@@ -1207,6 +1207,15 @@ document.addEventListener('click', function(e) {{
         hideActionSheet();
     }}
 }});
+// Form submission loading states
+document.addEventListener('submit', function(e) {{
+    const form = e.target;
+    const btn = form.querySelector('button[type="submit"]');
+    if (btn) {{
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading-spinner" style="width:16px;height:16px;border-width:2px;margin:0"></span> Processing...';
+    }}
+}});
 </script>
 </body>
 </html>"""
