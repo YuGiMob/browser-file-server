@@ -148,12 +148,70 @@ class FileServerHandler(BaseHTTPRequestHandler):
         stat = file_path.stat()
         file_size = stat.st_size
 
+        range_header = self.headers.get('Range', '')
+        if range_header and range_header.startswith('bytes='):
+            ranges = []
+            for part in range_header[6:].split(','):
+                part = part.strip()
+                if '-' in part:
+                    start_str, end_str = part.split('-', 1)
+                    start_str = start_str.strip()
+                    end_str = end_str.strip()
+                    if start_str:
+                        start = int(start_str)
+                        end = int(end_str) if end_str else file_size - 1
+                    else:
+                        suffix = int(end_str)
+                        start = max(0, file_size - suffix)
+                        end = file_size - 1
+                    if start > end or start >= file_size:
+                        self.send_response(416)
+                        self.send_header('Content-Range', f'bytes */{file_size}')
+                        self.send_header('X-Request-ID', self.request_id)
+                        self.end_headers()
+                        return
+                    end = min(end, file_size - 1)
+                    ranges.append((start, end))
+            if ranges:
+                start, end = ranges[0]
+                content_length = end - start + 1
+                self.send_response(206)
+                self.send_header('Content-Type', content_type)
+                self.send_header('Content-Length', str(content_length))
+                self.send_header('Content-Range', f'bytes {start}-{end}/{file_size}')
+                self.send_header('Last-Modified', time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.gmtime(stat.st_mtime)))
+                self.send_header('Cache-Control', 'private, max-age=3600')
+                self.send_header('X-Request-ID', self.request_id)
+                for key, value in self.security_headers.get_headers().items():
+                    self.send_header(key, value)
+                if extra_headers:
+                    for key, value in extra_headers.items():
+                        if key not in ('Content-Length', 'Content-Range'):
+                            self.send_header(key, value)
+                self.end_headers()
+                if self.command == 'HEAD':
+                    return
+                try:
+                    with open(file_path, 'rb') as f:
+                        f.seek(start)
+                        remaining = content_length
+                        while remaining > 0:
+                            chunk_size = min(65536, remaining)
+                            chunk = f.read(chunk_size)
+                            if not chunk:
+                                break
+                            self.wfile.write(chunk)
+                            remaining -= len(chunk)
+                except (OSError, PermissionError) as e:
+                    logger.exception(f'Error streaming file: {e}')
+                return
+
         self.send_response(200)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(file_size))
-        self.send_header("Last-Modified", time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime(stat.st_mtime)))
-        self.send_header("Cache-Control", "private, max-age=3600")
-        self.send_header("X-Request-ID", self.request_id)
+        self.send_header('Content-Type', content_type)
+        self.send_header('Content-Length', str(file_size))
+        self.send_header('Last-Modified', time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.gmtime(stat.st_mtime)))
+        self.send_header('Cache-Control', 'private, max-age=3600')
+        self.send_header('X-Request-ID', self.request_id)
 
         for key, value in self.security_headers.get_headers().items():
             self.send_header(key, value)
@@ -164,14 +222,14 @@ class FileServerHandler(BaseHTTPRequestHandler):
 
         self.end_headers()
 
-        if self.command == "HEAD":
+        if self.command == 'HEAD':
             return
 
         try:
-            with open(file_path, "rb") as f:
+            with open(file_path, 'rb') as f:
                 shutil.copyfileobj(f, self.wfile)
         except (OSError, PermissionError) as e:
-            logger.exception(f"Error streaming file: {e}")
+            logger.exception(f'Error streaming file: {e}')
 
     def _send_html(self, status: int, html: str, title: str = "File Server"):
         full_html = get_base_html(title, html, self.config.ui.theme)
@@ -240,11 +298,11 @@ class FileServerHandler(BaseHTTPRequestHandler):
         return {}
 
     def _get_multipart_data(self) -> Tuple[Dict[str, str], Dict[str, Tuple[str, bytes]]]:
-        content_type = self.headers.get("Content-Type", "")
-        if not content_type.startswith("multipart/form-data"):
+        content_type = self.headers.get('Content-Type', '')
+        if not content_type.startswith('multipart/form-data'):
             return {}, {}
 
-        boundary = content_type.split("boundary=", 1)[1].strip().strip('"')
+        boundary = content_type.split('boundary=', 1)[1].strip().strip('"')
         if not boundary:
             return {}, {}
 
@@ -254,55 +312,75 @@ class FileServerHandler(BaseHTTPRequestHandler):
         body = self._buffered_body
 
         if len(body) > self.config.server.max_upload_size:
-            raise ValueError(f"Upload too large: {len(body)} bytes (max {self.config.server.max_upload_size})")
+            raise ValueError(f'Upload too large: {len(body)} bytes (max {self.config.server.max_upload_size})')
 
         fields = {}
         files = {}
 
-        parts = body.split(f"--{boundary}".encode())
+        boundary_bytes = f'--{boundary}'.encode()
+        boundary_end = f'--{boundary}--'.encode()
+
+        parts = []
+        pos = 0
+        while True:
+            if pos == 0 and body.startswith(boundary_bytes):
+                idx = 0
+            else:
+                idx = body.find(b'\r\n' + boundary_bytes, pos)
+                if idx == -1:
+                    break
+                idx += 2
+            if body[idx:].startswith(boundary_end):
+                break
+            part_start = idx + len(boundary_bytes)
+            next_idx = body.find(b'\r\n' + boundary_bytes, part_start)
+            if next_idx == -1:
+                part_data = body[part_start:]
+                parts.append(part_data)
+                break
+            else:
+                part_data = body[part_start:next_idx]
+                parts.append(part_data)
+                pos = next_idx
+
         for part in parts:
-            part = part.strip(b"\r\n")
-            if not part or part == b"--":
+            part = part.strip(b'\r\n')
+            if not part:
                 continue
 
-            header_end = part.find(b"\r\n\r\n")
+            header_end = part.find(b'\r\n\r\n')
             if header_end == -1:
                 continue
 
             header_data = part[:header_end]
-            file_data = part[header_end + 4:].rstrip(b"\r\n")
+            file_data = part[header_end + 4:]
 
             headers = {}
-            for line in header_data.decode("utf-8", errors="replace").split("\r\n"):
-                if ":" in line:
-                    key, value = line.split(":", 1)
+            for line in header_data.decode('utf-8', errors='replace').split('\r\n'):
+                if ':' in line:
+                    key, value = line.split(':', 1)
                     headers[key.strip().lower()] = value.strip()
 
-            disposition = headers.get("content-disposition", "")
+            disposition = headers.get('content-disposition', '')
             if not disposition:
                 continue
 
-            name_match = None
-            for item in disposition.split(";"):
+            name = None
+            filename = None
+            for item in disposition.split(';'):
                 item = item.strip()
-                if item.startswith("name="):
-                    name_match = item[5:].strip('"')
-                    break
+                if item.startswith('name='):
+                    name = item[5:].strip('"')
+                elif item.startswith('filename='):
+                    filename = item[9:].strip('"')
 
-            if not name_match:
+            if not name:
                 continue
 
-            filename_match = None
-            for item in disposition.split(";"):
-                item = item.strip()
-                if item.startswith("filename="):
-                    filename_match = item[9:].strip('"')
-                    break
-
-            if filename_match:
-                files[name_match] = (filename_match, file_data)
+            if filename:
+                files[name] = (filename, file_data)
             else:
-                fields[name_match] = file_data.decode("utf-8", errors="replace")
+                fields[name] = file_data.decode('utf-8', errors='replace')
 
         return fields, files
 

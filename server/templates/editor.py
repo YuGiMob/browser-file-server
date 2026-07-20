@@ -78,15 +78,8 @@ def render_editor(
                 </div>
             </div>
 
-            <textarea
-                name="content"
-                id="editor"
-                class="editor-textarea"
-                spellcheck="false"
-                {read_only_attr}
-                oninput="updateCounts()"
-                onkeydown="handleTab(event)"
-            >{escape_html(content)}</textarea>
+            <div id="editor-container" style="border: none; border-radius: var(--radius); overflow: hidden;"></div>
+            <textarea name="content" id="editor-textarea" style="display: none;">{escape_html(content)}</textarea>
 
             <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
                 <div style="color: var(--text-muted); font-size: 13px;">
@@ -98,80 +91,110 @@ def render_editor(
     </div>
     </div>
 
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/theme/material-darker.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/python/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/htmlmixed/htmlmixed.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/markdown/markdown.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/sql/sql.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/yaml/yaml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/clike/clike.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/shell/shell.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/ruby/ruby.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/php/php.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/go/go.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/rust/rust.min.js"></script>
     <script>
-    const editor = document.getElementById('editor');
-    let undoStack = [];
-    let redoStack = [];
-    let lastContent = editor.value;
+    const MODE_MAP = {{
+        'py': 'python', 'js': 'javascript', 'ts': 'text/typescript',
+        'jsx': 'text/jsx', 'tsx': 'text/jsx',
+        'html': 'htmlmixed', 'htm': 'htmlmixed',
+        'css': 'css', 'scss': 'text/x-scss',
+        'json': 'application/json', 'xml': 'xml',
+        'yaml': 'yaml', 'yml': 'yaml',
+        'toml': 'toml', 'md': 'markdown',
+        'sh': 'shell', 'bash': 'shell',
+        'sql': 'sql', 'go': 'go', 'rs': 'rust',
+        'java': 'text/x-java', 'c': 'text/x-csrc',
+        'cpp': 'text/x-c++src', 'h': 'text/x-csrc',
+        'cs': 'text/x-csharp', 'rb': 'ruby',
+        'php': 'php',
+    }};
+    const ext = '{ext}';
+    const mode = MODE_MAP[ext] || null;
+
+    const textarea = document.getElementById('editor-textarea');
+    const editor = CodeMirror(document.getElementById('editor-container'), {{
+        value: textarea.value,
+        mode: mode,
+        theme: 'material-darker',
+        lineNumbers: true,
+        indentUnit: 4,
+        tabSize: 4,
+        indentWithTabs: false,
+        lineWrapping: false,
+        viewportMargin: Infinity,
+        readOnly: {'true' if read_only else 'false'},
+        extraKeys: {{
+            'Tab': function(cm) {{ cm.replaceSelection('    ', 'end'); }},
+            'Shift-Tab': function(cm) {{ cm.execCommand('indentLess'); }},
+        }},
+    }});
+
+    document.getElementById('editor-form').addEventListener('submit', function() {{
+        textarea.value = editor.getValue();
+    }});
 
     function updateCounts() {{
-        const text = editor.value;
-        const lines = text.split('\\n').length;
+        const text = editor.getValue();
+        const lines = text.split('\n').length;
         const chars = text.length;
-        document.getElementById('line-count').textContent = `${{lines}} lines`;
-        document.getElementById('char-count').textContent = `${{chars}} chars`;
+        document.getElementById('line-count').textContent = lines + ' lines';
+        document.getElementById('char-count').textContent = chars + ' chars';
     }}
 
-    function handleTab(e) {{
-        if (e.key === 'Tab') {{
-            e.preventDefault();
-            const start = editor.selectionStart;
-            const end = editor.selectionEnd;
-            if (e.shiftKey) {{
-                const lineStart = editor.value.lastIndexOf('\\n', start - 1) + 1;
-                const line = editor.value.substring(lineStart, end);
-                if (line.startsWith('    ')) {{
-                    editor.value = editor.value.substring(0, lineStart) + line.substring(4) + editor.value.substring(end);
-                    editor.selectionStart = editor.selectionEnd = start - 4;
-                }}
-            }} else {{
-                editor.value = editor.value.substring(0, start) + '    ' + editor.value.substring(end);
-                editor.selectionStart = editor.selectionEnd = start + 4;
-            }}
-            updateCounts();
+    let undoStack = [];
+    let redoStack = [];
+    let lastContent = editor.getValue();
+
+    editor.on('change', function() {{
+        const val = editor.getValue();
+        if (val !== lastContent) {{
+            undoStack.push(lastContent);
+            redoStack = [];
+            lastContent = val;
         }}
-    }}
+        updateCounts();
+        clearTimeout(window._saveTimeout);
+        const status = document.getElementById('save-status');
+        status.textContent = 'Modified';
+        status.style.color = 'var(--warning)';
+        window._saveTimeout = setTimeout(function() {{
+            status.textContent = '';
+        }}, 2000);
+    }});
 
     function undoEdit() {{
         if (undoStack.length > 0) {{
-            redoStack.push(editor.value);
-            editor.value = undoStack.pop();
+            redoStack.push(editor.getValue());
+            editor.setValue(undoStack.pop());
             updateCounts();
         }}
     }}
 
     function redoEdit() {{
         if (redoStack.length > 0) {{
-            undoStack.push(editor.value);
-            editor.value = redoStack.pop();
+            undoStack.push(editor.getValue());
+            editor.setValue(redoStack.pop());
             updateCounts();
         }}
     }}
 
-    editor.addEventListener('input', function() {{
-        if (editor.value !== lastContent) {{
-            undoStack.push(lastContent);
-            redoStack = [];
-            lastContent = editor.value;
-        }}
-    }});
-
-    let saveTimeout;
-    editor.addEventListener('input', function() {{
-        clearTimeout(saveTimeout);
-        const status = document.getElementById('save-status');
-        status.textContent = 'Modified';
-        status.style.color = 'var(--warning)';
-        saveTimeout = setTimeout(() => {{
-            status.textContent = '';
-        }}, 2000);
-    }});
-
     document.addEventListener('keydown', function(e) {{
-        if ((e.ctrlKey || e.metaKey) && e.key === 's') {{
-            e.preventDefault();
-            document.getElementById('editor-form').submit();
-        }}
         if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {{
             e.preventDefault();
             undoEdit();

@@ -106,7 +106,7 @@ class TestTemplateRendering(unittest.TestCase):
 
     def test_editor_readonly(self):
         html = render_editor('test.txt', 'Hello World', read_only=True)
-        self.assertIn('readonly', html)
+        self.assertIn('readOnly: true', html)
 
     def test_editor_flash_message(self):
         html = render_editor('test.txt', 'Hello', flash_message='Saved!', flash_type='success')
