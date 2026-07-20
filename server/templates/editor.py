@@ -5,7 +5,7 @@ File editor template with professional mobile-app design.
 from urllib.parse import quote
 from ..utils.format import escape_html
 from ..utils.path import get_parent_path, build_path_breadcrumb
-
+from .. import RAW, SAVE
 def render_editor(
     file_path: str,
     content: str,
@@ -65,7 +65,7 @@ def render_editor(
     {flash_html}
     
     <div class="editor-container">
-        <form method="post" action="/save" id="editor-form">
+        <form method="post" action="{SAVE}" id="editor-form">
             <input type="hidden" name="p" value="{safe_file_path}">
             <input type="hidden" name="_csrf" value="{escape_html(csrf_token)}">
             

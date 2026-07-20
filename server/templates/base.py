@@ -1150,15 +1150,6 @@ function showToast(message, type = 'info', duration = 3000) {{
 
 // Keyboard shortcuts
 document.addEventListener('keydown', function(e) {{
-    // Ctrl+S to save
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') {{
-        const form = document.querySelector('form[method="post"]');
-        if (form) {{
-            e.preventDefault();
-            form.submit();
-        }}
-    }}
-    
     // / to focus search
     if (e.key === '/' && !e.ctrlKey && !e.metaKey) {{
         const searchInput = document.querySelector('input[type="search"]');

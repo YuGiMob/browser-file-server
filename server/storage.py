@@ -12,6 +12,7 @@ import os
 import shutil
 import zipfile
 import io
+import tempfile
 import time
 from pathlib import Path
 from typing import List, Dict, Optional, Generator, Any
@@ -19,7 +20,7 @@ from dataclasses import dataclass
 import mimetypes
 
 from .utils.format import format_size, format_time, format_permissions
-
+from .utils.mime import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, AUDIO_EXTENSIONS, ARCHIVE_EXTENSIONS
 
 @dataclass
 class FileInfo:
@@ -52,7 +53,6 @@ class FileInfo:
         }
 
 
-# Text file extensions
 TEXT_EXTENSIONS = {
     ".sh", ".bash", ".zsh", ".fish", ".py", ".pyw", ".js", ".ts", ".mjs", ".cjs",
     ".jsx", ".tsx", ".html", ".htm", ".css", ".scss", ".sass", ".less",
@@ -69,13 +69,6 @@ TEXT_EXTENSIONS = {
     ".rst", ".asciidoc", ".textile",
     ".org", ".tex", ".latex",
 }
-
-# Binary file extensions that should be previewed
-IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp", ".ico", ".tiff"}
-VIDEO_EXTENSIONS = {".mp4", ".webm", ".ogg", ".mov", ".avi", ".mkv", ".flv", ".wmv"}
-AUDIO_EXTENSIONS = {".mp3", ".wav", ".ogg", ".flac", ".aac", ".wma", ".m4a"}
-ARCHIVE_EXTENSIONS = {".zip", ".tar", ".gz", ".bz2", ".xz", ".7z", ".rar"}
-
 
 class Storage:
     """File storage operations."""
@@ -406,6 +399,21 @@ class Storage:
                         zf.write(path, arcname)
 
             return buffer.getvalue()
+        except (OSError, PermissionError):
+            return None
+
+    def create_zip_file(self, paths: List[Path]) -> Optional[Path]:
+        """Create a ZIP archive as a temp file (streaming-friendly)."""
+        try:
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
+            with zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED) as zf:
+                for path in paths:
+                    if path.is_dir():
+                        self._add_dir_to_zip(zf, path, path.parent)
+                    else:
+                        arcname = path.relative_to(self.root)
+                        zf.write(path, arcname)
+            return Path(tmp.name)
         except (OSError, PermissionError):
             return None
 

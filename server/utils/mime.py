@@ -132,6 +132,13 @@ ARCHIVE_MIME_TYPES = {
 }
 
 
+# Binary file extension sets (used across modules)
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp", ".ico", ".tiff"}
+VIDEO_EXTENSIONS = {".mp4", ".webm", ".ogg", ".mov", ".avi", ".mkv", ".flv", ".wmv"}
+AUDIO_EXTENSIONS = {".mp3", ".wav", ".ogg", ".flac", ".aac", ".wma", ".m4a"}
+ARCHIVE_EXTENSIONS = {".zip", ".tar", ".gz", ".bz2", ".xz", ".7z", ".rar"}
+
+
 def guess_mime_type(filename: str) -> Optional[str]:
     """
     Guess MIME type from filename.

@@ -7,7 +7,8 @@ from typing import Optional
 import os
 from ..utils.format import escape_html, format_size
 from ..utils.path import get_parent_path, build_path_breadcrumb
-
+from ..utils.mime import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, AUDIO_EXTENSIONS
+from .. import RAW
 def render_preview(
     file_path: str,
     file_name: str,
@@ -51,7 +52,7 @@ def render_preview(
             <a href="/?p={quote(get_parent_path(file_path))}" class="btn-icon">←</a>
             <span class="header-title">{safe_file_name}</span>
             <div class="header-actions">
-                <a href="/raw?p={encoded_path}" class="btn-icon" title="Download">⬇️</a>
+                <a href="{RAW}?p={encoded_path}" class="btn-icon" title="Download">⬇️</a>
                 {'<a href="/?p=' + encoded_path + '&edit=1" class="btn-icon" title="Edit">✏️</a>' if is_text else ''}
                 <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌓</button>
             </div>
@@ -111,30 +112,30 @@ def _get_preview_content(
     safe_file_name = escape_html(file_name)
 
     # Image preview
-    if ext in ('.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico'):
+    if ext in IMAGE_EXTENSIONS:
         return f"""
         <div style="text-align: center;">
-            <img src="/raw?p={encoded_path}" alt="{safe_file_name}" class="preview-image"
+            <img src="{RAW}?p={encoded_path}" alt="{safe_file_name}" class="preview-image"
                  style="max-width: 100%; max-height: 80vh; border-radius: var(--radius);">
         </div>"""
 
     # Video preview
-    if ext in ('.mp4', '.webm', '.ogg', '.mov'):
+    if ext in VIDEO_EXTENSIONS:
         return f"""
         <div style="text-align: center;">
             <video controls class="preview-video" style="max-width: 100%; border-radius: var(--radius);">
-                <source src="/raw?p={encoded_path}" type="{escape_html(mime_type or '')}">
+                <source src="{RAW}?p={encoded_path}" type="{escape_html(mime_type or '')}">
                 Your browser does not support the video tag.
             </video>
         </div>"""
 
     # Audio preview
-    if ext in ('.mp3', '.wav', '.ogg', '.flac', '.aac', '.m4a'):
+    if ext in AUDIO_EXTENSIONS:
         return f"""
         <div style="padding: 32px; background: var(--bg-card); border-radius: var(--radius); text-align: center;">
             <div style="font-size: 64px; margin-bottom: 16px;">🎵</div>
             <audio controls style="width: 100%; max-width: 500px;">
-                <source src="/raw?p={encoded_path}" type="{escape_html(mime_type or '')}">
+                <source src="{RAW}?p={encoded_path}" type="{escape_html(mime_type or '')}">
                 Your browser does not support the audio tag.
             </audio>
         </div>"""
@@ -143,7 +144,7 @@ def _get_preview_content(
     if ext == '.pdf':
         return f"""
         <div style="background: var(--bg-card); border-radius: var(--radius); overflow: hidden;">
-            <iframe src="/raw?p={encoded_path}" style="width: 100%; height: 80vh; border: none;"></iframe>
+            <iframe src="{RAW}?p={encoded_path}" style="width: 100%; height: 80vh; border: none;"></iframe>
         </div>"""
 
     # Text file preview
@@ -172,7 +173,7 @@ def _get_preview_content(
         <p style="color: var(--text-secondary); margin-bottom: 24px;">
             Preview not available for this file type
         </p>
-        <a href="/raw?p={encoded_path}" class="btn">
+        <a href="{RAW}?p={encoded_path}" class="btn">
             ⬇️ Download File
         </a>
     </div>"""

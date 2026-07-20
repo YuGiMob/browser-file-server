@@ -10,6 +10,7 @@ Handles all HTTP requests including:
 
 import os
 import shutil
+import tempfile
 import time
 import uuid
 import hmac
@@ -22,7 +23,7 @@ from typing import Dict, Optional, Tuple
 from urllib.parse import urlparse, parse_qs, quote
 from pathlib import Path
 
-from . import __version__
+from . import __version__, ROOT, RAW, SEARCH, DOWNLOAD, API_FILES, HEALTH, SAVE, UPLOAD, MKDIR, DELETE, MOVE, COPY, DOWNLOAD_SELECTED
 from .config import Config
 from .security import (
     PathSecurity, RateLimiter, IPFilter,
@@ -71,20 +72,16 @@ class FileServerHandler(BaseHTTPRequestHandler):
         super().__init__(*args, **kwargs)
 
     def _generate_csrf_token(self) -> str:
-        """Generate a stateless CSRF token using HMAC."""
         secret = self._csrf_secret or (self._config.server.host.encode() + str(self._config.server.port).encode())
-        # Token valid for ~1 hour windows
         window = str(int(time.time()) // 3600)
         client_ip = self.client_address[0] if hasattr(self, 'client_address') else '0.0.0.0'
         return hmac.new(secret, f"{client_ip}:{window}".encode(), hashlib.sha256).hexdigest()[:32]
 
     def _validate_csrf_token(self, token: str) -> bool:
-        """Validate a CSRF token submitted via POST."""
         if not token:
             return False
-        # Accept current window and previous window (for clock skew)
         secret = self._csrf_secret or (self._config.server.host.encode() + str(self._config.server.port).encode())
-        client_ip = self.client_address[0]
+        client_ip = get_client_ip(self)
         for offset in (0, -1):
             window = str((int(time.time()) // 3600) + offset)
             expected = hmac.new(secret, f"{client_ip}:{window}".encode(), hashlib.sha256).hexdigest()[:32]
@@ -327,17 +324,17 @@ class FileServerHandler(BaseHTTPRequestHandler):
             params = self._get_query_params()
 
             # Route request
-            if path == "/" or path == "":
+            if path == ROOT or path == "":
                 self._handle_root(params)
-            elif path == "/raw":
+            elif path == RAW:
                 self._handle_raw(params)
-            elif path == "/search":
+            elif path == SEARCH:
                 self._handle_search(params)
-            elif path == "/download":
+            elif path == DOWNLOAD:
                 self._handle_download(params)
-            elif path == "/api/files":
+            elif path == API_FILES:
                 self._handle_api_files(params)
-            elif path == "/health":
+            elif path == HEALTH:
                 self._handle_health()
             else:
                 self._send_error(404, "Not found")
@@ -370,19 +367,19 @@ class FileServerHandler(BaseHTTPRequestHandler):
             path = parsed.path
 
             # Route request
-            if path == "/save":
+            if path == SAVE:
                 self._handle_save()
-            elif path == "/upload":
+            elif path == UPLOAD:
                 self._handle_upload()
-            elif path == "/mkdir":
+            elif path == MKDIR:
                 self._handle_mkdir()
-            elif path == "/delete":
+            elif path == DELETE:
                 self._handle_delete_post()
-            elif path == "/move":
+            elif path == MOVE:
                 self._handle_move()
-            elif path == "/copy":
+            elif path == COPY:
                 self._handle_copy()
-            elif path == "/download-selected":
+            elif path == DOWNLOAD_SELECTED:
                 self._handle_download_selected()
             else:
                 self._send_error(404, "Not found")
@@ -701,9 +698,9 @@ class FileServerHandler(BaseHTTPRequestHandler):
             self._send_error(404, f"Path not found: {escape_html(rel_path)}")
             return
 
-        # Create ZIP
-        zip_content = self.storage.create_zip([target])
-        if not zip_content:
+        # Create ZIP as temp file and stream it
+        zip_path = self.storage.create_zip_file([target])
+        if not zip_path:
             self._send_error(500, "Error creating ZIP")
             return
 
@@ -711,10 +708,11 @@ class FileServerHandler(BaseHTTPRequestHandler):
         filename = f"{target.name}.zip"
         extra_headers = {
             "Content-Disposition": f'attachment; filename="{filename}"',
-            "Content-Length": str(len(zip_content)),
         }
-
-        self._send_response(200, zip_content, "application/zip", extra_headers)
+        try:
+            self._send_file_stream(zip_path, "application/zip", extra_headers)
+        finally:
+            zip_path.unlink(missing_ok=True)
 
     def _handle_api_files(self, params: Dict[str, str]):
         """Handle API file listing request."""
@@ -1027,9 +1025,9 @@ class FileServerHandler(BaseHTTPRequestHandler):
             self._send_error(404, "No valid files found")
             return
 
-        # Create ZIP
-        zip_content = self.storage.create_zip(paths)
-        if not zip_content:
+        # Create ZIP as temp file and stream it
+        zip_path = self.storage.create_zip_file(paths)
+        if not zip_path:
             self._send_error(500, "Error creating ZIP")
             return
 
@@ -1040,13 +1038,13 @@ class FileServerHandler(BaseHTTPRequestHandler):
             folder_name = current_path.split("/")[-1] if current_path else "files"
             filename = f"{folder_name}_selected.zip"
 
-        # Send ZIP
         extra_headers = {
             "Content-Disposition": f'attachment; filename="{filename}"',
-            "Content-Length": str(len(zip_content)),
         }
-
-        self._send_response(200, zip_content, "application/zip", extra_headers)
+        try:
+            self._send_file_stream(zip_path, "application/zip", extra_headers)
+        finally:
+            zip_path.unlink(missing_ok=True)
 
 
 def create_handler_class(config: Config):

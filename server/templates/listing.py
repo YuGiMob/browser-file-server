@@ -8,7 +8,7 @@ from urllib.parse import quote
 from ..storage import FileInfo, format_size, get_icon_for_file
 from ..utils.format import escape_html
 from ..utils.path import get_parent_path, build_path_breadcrumb
-
+from .. import UPLOAD, SEARCH, DOWNLOAD, RAW, DELETE, DOWNLOAD_SELECTED
 def render_listing(
     files: List[FileInfo],
     current_path: str,
@@ -35,7 +35,7 @@ def render_listing(
     
     file_items = []
     for file_info in files:
-        file_items.append(_render_file_item(file_info, current_path, features, csrf_token))
+        file_items.append(_render_file_item(file_info, current_path, features, csrf_token, search_query))
     
     upload_html = ""
     if features.get("upload", True):
@@ -45,7 +45,7 @@ def render_listing(
             <div class="upload-zone-text">
                 <strong>Tap to upload</strong> or drag files here
             </div>
-            <form method="post" action="/upload" enctype="multipart/form-data" id="upload-form" style="margin-top: 16px;">
+            <form method="post" action="{UPLOAD}" enctype="multipart/form-data" id="upload-form" style="margin-top: 16px;">
                 <input type="hidden" name="p" value="{escape_html(current_path)}">
                 <input type="hidden" name="_csrf" value="{escape_html(csrf_token)}">
                 <input type="file" name="f" multiple id="file-input" style="display: none;" accept="*/*">
@@ -60,7 +60,7 @@ def render_listing(
     if features.get("search", True):
         search_html = f'''
     <div class="search-bar">
-        <form method="get" action="/search" class="search-input-wrapper">
+        <form method="get" action="{SEARCH}" class="search-input-wrapper">
             <input type="hidden" name="p" value="{escape_html(current_path)}">
             <span class="search-icon">\U0001f50d</span>
             <input type="search" name="q" value="{escape_html(search_query)}" placeholder="Search" class="search-input">
@@ -167,7 +167,7 @@ function downloadSelected() {{
     
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = '/download-selected';
+    form.action = '{DOWNLOAD_SELECTED}';
     
     const pathInput = document.createElement('input');
     pathInput.type = 'hidden';
@@ -201,7 +201,7 @@ function deleteSelected() {{
     selectedFiles.forEach(path => {{
         const form = document.createElement('form');
         form.method = 'POST';
-        form.action = '/delete';
+        form.action = '{DELETE}';
         
         const input = document.createElement('input');
         input.type = 'hidden';
@@ -281,18 +281,18 @@ def _get_display_name(path: str) -> str:
     return path.rstrip('/').split('/')[-1]
 
 
-def _render_file_item(file_info: FileInfo, current_path: str, features: dict, csrf_token: str) -> str:
+def _render_file_item(file_info: FileInfo, current_path: str, features: dict, csrf_token: str, search_query: str = "") -> str:
     icon = get_icon_for_file(file_info.name, file_info.is_dir)
     encoded_path = quote(file_info.path)
     name_class = "file-name is-dir" if file_info.is_dir else "file-name"
-    safe_name = escape_html(file_info.name)
+    display_name = escape_html(file_info.path if search_query else file_info.name)
     
     if file_info.is_dir:
-        link = f'<a href="/?p={encoded_path}">{safe_name}</a>'
+        link = f'<a href="/?p={encoded_path}">{display_name}</a>'
     elif file_info.is_text and features.get("edit", True):
-        link = f'<a href="/?p={encoded_path}&edit=1">{safe_name}</a>'
+        link = f'<a href="/?p={encoded_path}&edit=1">{display_name}</a>'
     else:
-        link = f'<a href="/raw?p={encoded_path}">{safe_name}</a>'
+        link = f'<a href="{RAW}?p={encoded_path}">{display_name}</a>'
     
     meta_parts = []
     if not file_info.is_dir:
@@ -305,9 +305,9 @@ def _render_file_item(file_info: FileInfo, current_path: str, features: dict, cs
     # Build download button
     download_html = ''
     if file_info.is_dir:
-        download_html = f'<a href="/download?p={encoded_path}" class="file-action-btn" title="Download as ZIP">\U0001f4e5</a>'
+        download_html = f'<a href="{DOWNLOAD}?p={encoded_path}" class="file-action-btn" title="Download as ZIP">\U0001f4e5</a>'
     else:
-        download_html = f'<a href="/raw?p={encoded_path}" class="file-action-btn" title="Download">\U0001f4e5</a>'
+        download_html = f'<a href="{RAW}?p={encoded_path}" class="file-action-btn" title="Download">\U0001f4e5</a>'
     
     return f'''
     <div class="file-group" style="margin-bottom: 2px;">
