@@ -71,8 +71,11 @@ class FileServerHandler(BaseHTTPRequestHandler):
 
         super().__init__(*args, **kwargs)
 
+    def _get_csrf_secret(self) -> bytes:
+        return self._csrf_secret or (self._config.server.host.encode() + str(self._config.server.port).encode())
+
     def _generate_csrf_token(self) -> str:
-        secret = self._csrf_secret or (self._config.server.host.encode() + str(self._config.server.port).encode())
+        secret = self._get_csrf_secret()
         window = str(int(time.time()) // 3600)
         client_ip = self.client_address[0] if hasattr(self, 'client_address') else '0.0.0.0'
         return hmac.new(secret, f"{client_ip}:{window}".encode(), hashlib.sha256).hexdigest()[:32]
@@ -80,7 +83,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
     def _validate_csrf_token(self, token: str) -> bool:
         if not token:
             return False
-        secret = self._csrf_secret or (self._config.server.host.encode() + str(self._config.server.port).encode())
+        secret = self._get_csrf_secret()
         client_ip = get_client_ip(self)
         for offset in (0, -1):
             window = str((int(time.time()) // 3600) + offset)
@@ -149,7 +152,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(file_size))
         self.send_header("Last-Modified", time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime(stat.st_mtime)))
-        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+        self.send_header("Cache-Control", "private, max-age=3600")
         self.send_header("X-Request-ID", self.request_id)
 
         for key, value in self.security_headers.get_headers().items():
@@ -188,9 +191,14 @@ class FileServerHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def _check_rate_limit(self) -> bool:
-        """Check rate limit for client."""
         if not self.rate_limiter:
             return True
+
+        if not hasattr(self.__class__, '_request_count'):
+            self.__class__._request_count = 0
+        self.__class__._request_count += 1
+        if self.__class__._request_count % 100 == 0:
+            self.rate_limiter.cleanup()
 
         client_ip = get_client_ip(self)
         allowed, retry_after = self.rate_limiter.is_allowed(client_ip)
@@ -513,6 +521,9 @@ class FileServerHandler(BaseHTTPRequestHandler):
 
     def _handle_editor(self, params: Dict[str, str]):
         """Handle file editor request."""
+        if not self.config.features.edit:
+            self._send_error(403, "Editing disabled")
+            return
         rel_path = params.get("p", "")
 
         try:
@@ -969,21 +980,16 @@ class FileServerHandler(BaseHTTPRequestHandler):
             self._send_error(404, "Source not found")
             return
 
-        # Copy
-        try:
-            dest_path.parent.mkdir(parents=True, exist_ok=True)
-            if source_path.is_dir():
-                shutil.copytree(str(source_path), str(dest_path))
-            else:
-                shutil.copy2(str(source_path), str(dest_path))
+        # Copy using storage (handles permission fallback)
+        if not self.storage.copy(source_path, dest_path):
+            self._send_error(500, "Error copying")
+            return
 
-            logger.info(f"[{self.request_id}] Copied: {source} -> {destination}")
+        logger.info(f"[{self.request_id}] Copied: {source} -> {destination}")
 
-            # Redirect
-            parent = str(dest_path.parent.relative_to(self.config.get_root_path()))
-            self._send_redirect(f"/?p={quote(parent)}")
-        except (OSError, PermissionError) as e:
-            self._send_error(500, f"Error copying: {e}")
+        # Redirect
+        parent = str(dest_path.parent.relative_to(self.config.get_root_path()))
+        self._send_redirect(f"/?p={quote(parent)}")
 
     def _handle_download_selected(self):
         """Handle download of selected files/folders as ZIP."""

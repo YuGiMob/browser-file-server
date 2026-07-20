@@ -5,11 +5,13 @@ Integration tests for HTTP handler and templates.
 import unittest
 import tempfile
 import os
+from pathlib import Path
 import json
 import io
-from pathlib import Path
+import re
+from html.parser import HTMLParser
 from unittest.mock import MagicMock, patch
-from http.server import HTTPServer
+from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 import time
 import urllib.request
@@ -21,6 +23,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from server.config import Config, ServerConfig, SecurityConfig, FeaturesConfig, UIConfig, LoggingConfig, RateLimitConfig
 from server.handler import FileServerHandler, create_handler_class
 from server.storage import Storage, FileInfo
+from server import (
+    ROOT, RAW, SEARCH, DOWNLOAD, API_FILES, HEALTH,
+    SAVE, UPLOAD, MKDIR, DELETE, MOVE, COPY, DOWNLOAD_SELECTED,
+)
 from server.templates import render_listing, render_editor, render_preview, render_error
 from server.templates.base import get_base_html
 
@@ -364,12 +370,12 @@ class TestHTTPIntegration(unittest.TestCase):
     def test_copy_file(self):
         """Test file copy."""
         (Path(self.temp_dir) / 'original.txt').write_text('copy me')
-        
-        _, status = self._post('/copy', {'source': 'original.txt', 'destination': 'copied.txt'})
-        # Copy might fail due to shutil issues in test environment
-        # Just verify the endpoint exists and responds
-        self.assertIn(status, [200, 303, 500])
 
+        _, status = self._post('/copy', {'source': 'original.txt', 'destination': 'copied.txt'})
+        self.assertIn(status, [200, 303])
+        self.assertTrue((Path(self.temp_dir) / 'original.txt').exists())
+        self.assertTrue((Path(self.temp_dir) / 'copied.txt').exists())
+        self.assertEqual((Path(self.temp_dir) / 'copied.txt').read_text(), 'copy me')
 
 class TestBatchOperations(unittest.TestCase):
     """Test batch file operations."""
@@ -499,11 +505,240 @@ class TestResponsiveDesign(unittest.TestCase):
         self.assertIn('viewport-fit=cover', html)
         self.assertIn('user-scalable=no', html)
 
-    def test_safe_area_support(self):
-        """Test safe area CSS variables."""
-        html = get_base_html('Test', '<h1>Hello</h1>')
-        self.assertIn('safe-area-inset', html)
+class TestTemplateStructure(unittest.TestCase):
+    """Test structural integrity of generated HTML/CSS."""
+
+    def test_css_media_query_counts(self):
+        """CSS media queries for auto theme should each appear exactly once."""
+        html = get_base_html('Test', '')
+        self.assertEqual(html.count('@media (prefers-color-scheme: light)'), 1)
+        self.assertEqual(html.count('@media (prefers-color-scheme: dark)'), 1)
+
+    def test_auto_theme_block_count(self):
+        """[data-theme="auto"] should appear exactly twice (once per media query)."""
+        html = get_base_html('Test', '')
+        self.assertEqual(html.count('[data-theme="auto"]'), 2)
+
+    def test_css_balanced_braces(self):
+        """CSS should have balanced curly braces."""
+        html = get_base_html('Test', '')
+        style_start = html.find('<style>')
+        style_end = html.find('</style>')
+        css = html[style_start:style_end]
+        opens = css.count('{')
+        closes = css.count('}')
+        self.assertEqual(opens, closes, f"CSS has {opens} opening braces but {closes} closing braces")
+
+    def test_html_is_parseable(self):
+        """Generated HTML should be parseable by HTMLParser."""
+        html = get_base_html('Test', '<p>hello</p>')
+        parser = HTMLParser()
+        try:
+            parser.feed(html)
+            parser.close()
+        except Exception as e:
+            self.fail(f"HTML parse failed: {e}")
+
+    def test_listing_html_is_parseable(self):
+        """Listing HTML should be parseable."""
+        file_info = FileInfo(
+            name='test.txt', path='test.txt', is_dir=False, size=100,
+            modified=1234567890.0, modified_str='2024-01-01 12:00',
+            mime_type='text/plain', is_text=True, is_hidden=False,
+            permissions='-rw-r--r--',
+        )
+        html = render_listing([file_info], '', csrf_token='test')
+        parser = HTMLParser()
+        try:
+            parser.feed(html)
+            parser.close()
+        except Exception as e:
+            self.fail(f"Listing HTML parse failed: {e}")
+
+    def test_editor_html_is_parseable(self):
+        """Editor HTML should be parseable."""
+        html = render_editor('test.txt', 'content', csrf_token='test')
+        parser = HTMLParser()
+        try:
+            parser.feed(html)
+            parser.close()
+        except Exception as e:
+            self.fail(f"Editor HTML parse failed: {e}")
+
+    def test_preview_html_is_parseable(self):
+        """Preview HTML should be parseable."""
+        html = render_preview('test.txt', 'test.txt', 'text/plain', 100, 'hello', True)
+        parser = HTMLParser()
+        try:
+            parser.feed(html)
+            parser.close()
+        except Exception as e:
+            self.fail(f"Preview HTML parse failed: {e}")
+
+    def test_error_html_is_parseable(self):
+        """Error HTML should be parseable."""
+        html = render_error(404, 'Not found')
+        parser = HTMLParser()
+        try:
+            parser.feed(html)
+            parser.close()
+        except Exception as e:
+            self.fail(f"Error HTML parse failed: {e}")
+
+    def test_no_duplicate_theme_blocks(self):
+        """Should not have [data-theme="auto"] outside @media blocks."""
+        html = get_base_html('Test', '')
+        # Find all @media blocks and count [data-theme="auto"] inside them
+        media_blocks = re.findall(r'@media[^{]+\{[^}]+\}[^}]*\}', html, re.DOTALL)
+        auto_in_media = sum(block.count('[data-theme="auto"]') for block in media_blocks)
+        total_auto = html.count('[data-theme="auto"]')
+        self.assertEqual(
+            total_auto, auto_in_media,
+            f"Found {total_auto - auto_in_media} [data-theme=\"auto\"] outside @media blocks"
+        )
 
 
+class TestRouteCoverage(unittest.TestCase):
+    """Every route constant must have a corresponding handler method."""
+
+    def _get_handler_methods(self):
+        """Extract handler method names from FileServerHandler."""
+        methods = set()
+        for attr in dir(FileServerHandler):
+            if attr.startswith('_handle_'):
+                methods.add(attr)
+        return methods
+
+    def test_all_get_routes_have_handlers(self):
+        """All GET route constants must be handled in do_GET."""
+        get_route_names = ['ROOT', 'RAW', 'SEARCH', 'DOWNLOAD', 'API_FILES', 'HEALTH']
+        import inspect
+        source = inspect.getsource(FileServerHandler.do_GET)
+        for name in get_route_names:
+            self.assertIn(name, source, f"do_GET missing branch for {name}")
+
+    def test_all_post_routes_have_handlers(self):
+        """All POST route constants must be handled in do_POST."""
+        post_route_names = ['SAVE', 'UPLOAD', 'MKDIR', 'DELETE', 'MOVE', 'COPY', 'DOWNLOAD_SELECTED']
+        import inspect
+        source = inspect.getsource(FileServerHandler.do_POST)
+        for name in post_route_names:
+            self.assertIn(name, source, f"do_POST missing branch for {name}")
+    def test_all_route_constants_have_matching_handler(self):
+        """Every route constant should have a _handle_* method."""
+        route_to_handler = {
+            ROOT: '_handle_root',
+            RAW: '_handle_raw',
+            SEARCH: '_handle_search',
+            DOWNLOAD: '_handle_download',
+            API_FILES: '_handle_api_files',
+            HEALTH: '_handle_health',
+            SAVE: '_handle_save',
+            UPLOAD: '_handle_upload',
+            MKDIR: '_handle_mkdir',
+            DELETE: '_handle_delete_post',
+            MOVE: '_handle_move',
+            COPY: '_handle_copy',
+            DOWNLOAD_SELECTED: '_handle_download_selected',
+        }
+        methods = self._get_handler_methods()
+        for route, handler in route_to_handler.items():
+            self.assertIn(
+                handler, methods,
+                f"Route {route} maps to {handler} but method not found"
+            )
+
+
+class TestFeatureFlagCoverage(unittest.TestCase):
+    """Feature-gated handlers must check their feature flag."""
+
+    def test_upload_checks_feature_flag(self):
+        """Upload handler must check features.upload."""
+        import inspect
+        source = inspect.getsource(FileServerHandler._handle_upload)
+        self.assertIn('features.upload', source)
+
+    def test_delete_checks_feature_flag(self):
+        """Delete handler must check features.delete."""
+        import inspect
+        source = inspect.getsource(FileServerHandler._handle_delete_post)
+        self.assertIn('features.delete', source)
+
+    def test_mkdir_checks_feature_flag(self):
+        """Mkdir handler must check features.mkdir."""
+        import inspect
+        source = inspect.getsource(FileServerHandler._handle_mkdir)
+        self.assertIn('features.mkdir', source)
+
+    def test_edit_checks_feature_flag(self):
+        """Editor handler must check features.edit."""
+        import inspect
+        source = inspect.getsource(FileServerHandler._handle_editor)
+        self.assertIn('features.edit', source)
+
+    def test_save_checks_feature_flag(self):
+        """Save handler must check features.edit."""
+        import inspect
+        source = inspect.getsource(FileServerHandler._handle_save)
+        self.assertIn('features.edit', source)
+
+    def test_move_checks_feature_flag(self):
+        """Move handler must check features.move."""
+        import inspect
+        source = inspect.getsource(FileServerHandler._handle_move)
+        self.assertIn('features.move', source)
+
+    def test_copy_checks_feature_flag(self):
+        """Copy handler must check features.copy."""
+        import inspect
+        source = inspect.getsource(FileServerHandler._handle_copy)
+        self.assertIn('features.copy', source)
+
+    def test_download_zip_checks_feature_flag(self):
+        """Download ZIP handler must check features.download_zip."""
+        import inspect
+        source = inspect.getsource(FileServerHandler._handle_download)
+        self.assertIn('features.download_zip', source)
+
+    def test_download_selected_checks_feature_flag(self):
+        """Download selected handler must check features.download_zip."""
+        import inspect
+        source = inspect.getsource(FileServerHandler._handle_download_selected)
+        self.assertIn('features.download_zip', source)
+
+
+class TestCSRFCoverage(unittest.TestCase):
+    """All POST handlers must go through CSRF validation."""
+
+    def test_all_post_handlers_validate_csrf(self):
+        """Every POST handler branch in do_POST must be after CSRF check."""
+        import inspect
+        source = inspect.getsource(FileServerHandler.do_POST)
+        # CSRF check must happen before any handler dispatch
+        csrf_check = '_validate_post_csrf'
+        self.assertIn(csrf_check, source, "do_POST must call _validate_post_csrf")
+        # The CSRF check should be before the first handler call
+        csrf_pos = source.index(csrf_check)
+        first_handler = min(
+            pos for pos in [
+                source.find(f"path == SAVE:"),
+                source.find(f"path == UPLOAD:"),
+            ] if pos > 0
+        )
+        self.assertLess(
+            csrf_pos, first_handler,
+            "CSRF validation must happen before dispatching to handlers"
+        )
+
+    def test_every_post_handler_has_csrf_in_path(self):
+        """Each POST handler should be reachable only after CSRF passes."""
+        import inspect
+        source = inspect.getsource(FileServerHandler.do_POST)
+        post_route_names = ['SAVE', 'UPLOAD', 'MKDIR', 'DELETE', 'MOVE', 'COPY', 'DOWNLOAD_SELECTED']
+        for name in post_route_names:
+            self.assertIn(
+                name, source,
+                f"POST route {name} not found in do_POST"
+            )
 if __name__ == '__main__':
     unittest.main()

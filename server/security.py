@@ -11,7 +11,7 @@ Provides:
 import os
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 from urllib.parse import quote, unquote
 import ipaddress
 
@@ -216,8 +216,7 @@ class IPFilter:
         self.blocked_networks = self._parse_networks(blocked_ips or [])
 
     @staticmethod
-    def _parse_networks(ip_list: List[str]) -> List[ipaddress.IPv4Network | ipaddress.IPv6Network]:
-        """Parse IP addresses and networks."""
+    def _parse_networks(ip_list: List[str]) -> List[Union[ipaddress.IPv4Network, ipaddress.IPv6Network]]:
         networks = []
         for ip_str in ip_list:
             try:

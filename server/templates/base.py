@@ -83,6 +83,56 @@ def get_head(title: str, theme: str = "dark") -> str:
             --shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
         }}
 
+        @media (prefers-color-scheme: light) {{
+            [data-theme="auto"] {{
+                --bg-primary: #f2f2f7;
+                --bg-secondary: #ffffff;
+                --bg-tertiary: #e5e5ea;
+                --bg-card: #ffffff;
+                --bg-hover: rgba(0, 0, 0, 0.03);
+                --bg-active: rgba(0, 0, 0, 0.06);
+                --text-primary: #000000;
+                --text-secondary: rgba(0, 0, 0, 0.55);
+                --text-muted: rgba(0, 0, 0, 0.3);
+                --accent: #007aff;
+                --accent-hover: #0056b3;
+                --accent-bg: rgba(0, 122, 255, 0.1);
+                --success: #34c759;
+                --success-bg: rgba(52, 199, 89, 0.1);
+                --danger: #ff3b30;
+                --danger-bg: rgba(255, 59, 48, 0.1);
+                --warning: #ff9500;
+                --warning-bg: rgba(255, 149, 0, 0.1);
+                --border: rgba(0, 0, 0, 0.08);
+                --shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+            }}
+        }}
+
+        @media (prefers-color-scheme: dark) {{
+            [data-theme="auto"] {{
+                --bg-primary: #000000;
+                --bg-secondary: #1c1c1e;
+                --bg-tertiary: #2c2c2e;
+                --bg-card: #1c1c1e;
+                --bg-hover: rgba(255, 255, 255, 0.05);
+                --bg-active: rgba(255, 255, 255, 0.1);
+                --text-primary: #ffffff;
+                --text-secondary: rgba(255, 255, 255, 0.6);
+                --text-muted: rgba(255, 255, 255, 0.3);
+                --accent: #0a84ff;
+                --accent-hover: #409cff;
+                --accent-bg: rgba(10, 132, 255, 0.15);
+                --success: #30d158;
+                --success-bg: rgba(48, 209, 88, 0.15);
+                --danger: #ff453a;
+                --danger-bg: rgba(255, 69, 58, 0.15);
+                --warning: #ff9f0a;
+                --warning-bg: rgba(255, 159, 10, 0.15);
+                --border: rgba(255, 255, 255, 0.08);
+                --shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            }}
+        }}
+
         * {{
             box-sizing: border-box;
             margin: 0;
@@ -1112,8 +1162,17 @@ def get_footer(version: str = __version__) -> str:
 
 <script>
 // Theme management
-const theme = localStorage.getItem('theme') || 'auto';
+const savedTheme = localStorage.getItem('theme');
+const theme = savedTheme || 'auto';
 document.documentElement.setAttribute('data-theme', theme);
+
+if (!savedTheme) {{
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    function applySystemTheme(e) {{
+        document.documentElement.setAttribute('data-theme', 'auto');
+    }}
+    mq.addEventListener('change', applySystemTheme);
+}}
 
 function toggleTheme() {{
     const current = document.documentElement.getAttribute('data-theme');
@@ -1121,14 +1180,18 @@ function toggleTheme() {{
     if (current === 'dark') next = 'light';
     else if (current === 'light') next = 'auto';
     else next = 'dark';
-    
+
     document.documentElement.setAttribute('data-theme', next);
     localStorage.setItem('theme', next);
-    
-    // Update meta theme color
+
     const metaTheme = document.querySelector('meta[name="theme-color"]');
     if (metaTheme) {{
-        metaTheme.content = next === 'light' ? '#f2f2f7' : '#000000';
+        if (next === 'light') metaTheme.content = '#f2f2f7';
+        else if (next === 'auto') {{
+            metaTheme.content = window.matchMedia('(prefers-color-scheme: dark)').matches ? '#000000' : '#f2f2f7';
+        }} else {{
+            metaTheme.content = '#000000';
+        }}
     }}
 }}
 

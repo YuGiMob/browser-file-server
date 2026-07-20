@@ -266,7 +266,17 @@ if (uploadZone) {{
             input.dispatchEvent(new Event('change'));
         }}
     }});
-}}
+}})
+
+// E to edit first file
+document.addEventListener('keydown', function(e) {{
+    if (e.key === 'e' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {{
+        const firstEditLink = document.querySelector('.file-item:not(.selected) .file-name a[href*="edit=1"]');
+        if (firstEditLink) {{
+            window.location.href = firstEditLink.href;
+        }}
+    }}
+}});
 </script>
 """
     return html

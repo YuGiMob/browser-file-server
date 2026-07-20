@@ -244,12 +244,37 @@ def apply_env_vars(config: Dict[str, Any]) -> Dict[str, Any]:
         "FILESERVER_PORT": ("server", "port"),
         "FILESERVER_ROOT": ("server", "root"),
         "FILESERVER_MAX_UPLOAD": ("server", "max_upload_size"),
+        "FILESERVER_TIMEOUT": ("server", "timeout"),
         "FILESERVER_SSL_ENABLED": ("security", "ssl", "enabled"),
         "FILESERVER_SSL_CERT": ("security", "ssl", "certfile"),
         "FILESERVER_SSL_KEY": ("security", "ssl", "keyfile"),
+        "FILESERVER_RATE_LIMIT_ENABLED": ("security", "rate_limit", "enabled"),
+        "FILESERVER_RATE_LIMIT_RPM": ("security", "rate_limit", "requests_per_minute"),
+        "FILESERVER_RATE_LIMIT_BURST": ("security", "rate_limit", "burst"),
+        "FILESERVER_ALLOWED_IPS": ("security", "allowed_ips"),
+        "FILESERVER_BLOCKED_IPS": ("security", "blocked_ips"),
+        "FILESERVER_CORS_ENABLED": ("security", "cors", "enabled"),
+        "FILESERVER_CORS_ORIGINS": ("security", "cors", "origins"),
+        "FILESERVER_FEATURE_SEARCH": ("features", "search"),
+        "FILESERVER_FEATURE_PREVIEW": ("features", "preview"),
+        "FILESERVER_FEATURE_UPLOAD": ("features", "upload"),
+        "FILESERVER_FEATURE_DELETE": ("features", "delete"),
+        "FILESERVER_FEATURE_MKDIR": ("features", "mkdir"),
+        "FILESERVER_FEATURE_EDIT": ("features", "edit"),
+        "FILESERVER_FEATURE_DOWNLOAD_ZIP": ("features", "download_zip"),
+        "FILESERVER_FEATURE_MOVE": ("features", "move"),
+        "FILESERVER_FEATURE_COPY": ("features", "copy"),
         "FILESERVER_LOG_LEVEL": ("logging", "level"),
         "FILESERVER_LOG_FILE": ("logging", "file"),
+        "FILESERVER_LOG_MAX_SIZE": ("logging", "max_size"),
+        "FILESERVER_LOG_BACKUP_COUNT": ("logging", "backup_count"),
+        "FILESERVER_LOG_FORMAT": ("logging", "format"),
         "FILESERVER_THEME": ("ui", "theme"),
+        "FILESERVER_ITEMS_PER_PAGE": ("ui", "items_per_page"),
+        "FILESERVER_SHOW_HIDDEN": ("ui", "show_hidden"),
+        "FILESERVER_DEFAULT_SORT": ("ui", "default_sort"),
+        "FILESERVER_SHOW_PREVIEW": ("ui", "show_preview"),
+        "FILESERVER_SHOW_THUMBNAILS": ("ui", "show_thumbnails"),
     }
 
     for env_var, path in env_mappings.items():
@@ -266,11 +291,13 @@ def apply_env_vars(config: Dict[str, Any]) -> Dict[str, Any]:
             final_key = path[-1]
             if final_key in ("enabled",):
                 d[final_key] = value.lower() in ("true", "yes", "1")
-            elif final_key in ("port", "max_upload_size"):
+            elif final_key in ("port", "max_upload_size", "timeout", "requests_per_minute", "burst", "items_per_page", "max_size", "backup_count"):
                 try:
                     d[final_key] = int(value)
                 except ValueError:
                     pass
+            elif final_key in ("allowed_ips", "blocked_ips", "origins"):
+                d[final_key] = [v.strip() for v in value.split(",") if v.strip()]
             else:
                 d[final_key] = value
 

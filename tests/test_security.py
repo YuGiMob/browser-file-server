@@ -230,6 +230,7 @@ class TestCSRFProtection(unittest.TestCase):
         handler = MagicMock()
         handler._csrf_secret = secret
         handler.client_address = client_addr
+        handler._get_csrf_secret = lambda: secret
         return handler
 
     def _generate_token(self, handler, offset=0):
