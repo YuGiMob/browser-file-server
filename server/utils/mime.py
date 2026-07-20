@@ -76,6 +76,16 @@ CUSTOM_MIME_TYPES = {
     '.patch': 'text/x-diff',
 }
 
+TEXT_EXTENSIONS = set(CUSTOM_MIME_TYPES.keys()) | {
+    '.bash', '.zsh', '.fish', '.pyw', '.mjs', '.cjs',
+    '.scss', '.sass', '.less', '.rtf',
+    '.vb', '.pm', '.R',
+    '.env.example', '.env.local',
+    '.astro',
+    '.properties',
+    '.textile', '.org', '.tex', '.latex',
+}
+
 # Text MIME types
 TEXT_MIME_TYPES = {
     'text/',

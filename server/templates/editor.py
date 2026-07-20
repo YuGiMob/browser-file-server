@@ -6,6 +6,7 @@ from urllib.parse import quote
 from ..utils.format import escape_html
 from ..utils.path import get_parent_path, build_path_breadcrumb
 from .. import RAW, SAVE
+from .base import _render_header
 def render_editor(
     file_path: str,
     content: str,
@@ -42,33 +43,27 @@ def render_editor(
 
     read_only_attr = "readonly" if read_only else ""
 
+    actions = f'''
+        <a href="/?p={encoded_path}" class="btn-icon" title="View">👁️</a>
+        <a href="/raw?p={encoded_path}" class="btn-icon" title="Download">⬇️</a>
+    '''
+    breadcrumb = f'<a href="/">/</a>{build_path_breadcrumb(file_path)}'
+    header_html = _render_header(
+        back_url=f"/?p={quote(get_parent_path(file_path))}",
+        title=safe_file_name,
+        actions_html=actions,
+        breadcrumb_html=breadcrumb,
+    )
     html = f"""
-<div class="header">
-    <div class="header-content">
-        <div class="header-top">
-            <a href="/?p={quote(get_parent_path(file_path))}" class="btn-icon">←</a>
-            <span class="header-title">{safe_file_name}</span>
-            <div class="header-actions">
-                <a href="/?p={encoded_path}" class="btn-icon" title="View">👁️</a>
-                <a href="/raw?p={encoded_path}" class="btn-icon" title="Download">⬇️</a>
-                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌓</button>
-            </div>
-        </div>
-        <div class="breadcrumb">
-            <a href="/">/</a>
-            {build_path_breadcrumb(file_path)}
-        </div>
-    </div>
-</div>
-
-<div class="container">
+    {header_html}
+    <div class="container">
     {flash_html}
-    
+
     <div class="editor-container">
         <form method="post" action="{SAVE}" id="editor-form">
             <input type="hidden" name="p" value="{safe_file_path}">
             <input type="hidden" name="_csrf" value="{escape_html(csrf_token)}">
-            
+
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <span style="color: var(--text-secondary); font-size: 13px;">
@@ -77,14 +72,14 @@ def render_editor(
                     <span id="line-count" style="color: var(--text-muted); font-size: 13px;"></span>
                 </div>
                 <div style="display: flex; gap: 8px;">
-                    <button type="button" class="btn btn-sm btn-ghost" onclick="undoEdit()">↩️</button>
-                    <button type="button" class="btn btn-sm btn-ghost" onclick="redoEdit()">↪️</button>
+                    <button type="button" class="btn btn-sm btn-ghost" onclick="undoEdit()">\U0001f649</button>
+                    <button type="button" class="btn btn-sm btn-ghost" onclick="redoEdit()">\U0001f64a</button>
                     {'<button type="submit" class="btn btn-sm">Save</button>' if not read_only else ''}
                 </div>
             </div>
-            
-            <textarea 
-                name="content" 
+
+            <textarea
+                name="content"
                 id="editor"
                 class="editor-textarea"
                 spellcheck="false"
@@ -92,7 +87,7 @@ def render_editor(
                 oninput="updateCounts()"
                 onkeydown="handleTab(event)"
             >{escape_html(content)}</textarea>
-            
+
             <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
                 <div style="color: var(--text-muted); font-size: 13px;">
                     <span id="char-count"></span>
@@ -101,110 +96,94 @@ def render_editor(
             </div>
         </form>
     </div>
-</div>
+    </div>
 
-<script>
-const editor = document.getElementById('editor');
-let undoStack = [];
-let redoStack = [];
-let lastContent = editor.value;
+    <script>
+    const editor = document.getElementById('editor');
+    let undoStack = [];
+    let redoStack = [];
+    let lastContent = editor.value;
 
-// Update counts
-function updateCounts() {{
-    const text = editor.value;
-    const lines = text.split('\\n').length;
-    const chars = text.length;
-    document.getElementById('line-count').textContent = `${{lines}} lines`;
-    document.getElementById('char-count').textContent = `${{chars}} chars`;
-}}
+    function updateCounts() {{
+        const text = editor.value;
+        const lines = text.split('\\n').length;
+        const chars = text.length;
+        document.getElementById('line-count').textContent = `${{lines}} lines`;
+        document.getElementById('char-count').textContent = `${{chars}} chars`;
+    }}
 
-// Handle tab key
-function handleTab(e) {{
-    if (e.key === 'Tab') {{
-        e.preventDefault();
-        const start = editor.selectionStart;
-        const end = editor.selectionEnd;
-        
-        if (e.shiftKey) {{
-            // Unindent
-            const lineStart = editor.value.lastIndexOf('\\n', start - 1) + 1;
-            const line = editor.value.substring(lineStart, end);
-            if (line.startsWith('    ')) {{
-                editor.value = editor.value.substring(0, lineStart) + line.substring(4) + editor.value.substring(end);
-                editor.selectionStart = editor.selectionEnd = start - 4;
+    function handleTab(e) {{
+        if (e.key === 'Tab') {{
+            e.preventDefault();
+            const start = editor.selectionStart;
+            const end = editor.selectionEnd;
+            if (e.shiftKey) {{
+                const lineStart = editor.value.lastIndexOf('\\n', start - 1) + 1;
+                const line = editor.value.substring(lineStart, end);
+                if (line.startsWith('    ')) {{
+                    editor.value = editor.value.substring(0, lineStart) + line.substring(4) + editor.value.substring(end);
+                    editor.selectionStart = editor.selectionEnd = start - 4;
+                }}
+            }} else {{
+                editor.value = editor.value.substring(0, start) + '    ' + editor.value.substring(end);
+                editor.selectionStart = editor.selectionEnd = start + 4;
             }}
-        }} else {{
-            // Indent
-            editor.value = editor.value.substring(0, start) + '    ' + editor.value.substring(end);
-            editor.selectionStart = editor.selectionEnd = start + 4;
+            updateCounts();
         }}
-        
-        updateCounts();
     }}
-}}
 
-// Undo/Redo
-function undoEdit() {{
-    if (undoStack.length > 0) {{
-        redoStack.push(editor.value);
-        editor.value = undoStack.pop();
-        updateCounts();
+    function undoEdit() {{
+        if (undoStack.length > 0) {{
+            redoStack.push(editor.value);
+            editor.value = undoStack.pop();
+            updateCounts();
+        }}
     }}
-}}
 
-function redoEdit() {{
-    if (redoStack.length > 0) {{
-        undoStack.push(editor.value);
-        editor.value = redoStack.pop();
-        updateCounts();
+    function redoEdit() {{
+        if (redoStack.length > 0) {{
+            undoStack.push(editor.value);
+            editor.value = redoStack.pop();
+            updateCounts();
+        }}
     }}
-}}
 
-// Track changes for undo
-editor.addEventListener('input', function() {{
-    if (editor.value !== lastContent) {{
-        undoStack.push(lastContent);
-        redoStack = [];
-        lastContent = editor.value;
-    }}
-}});
+    editor.addEventListener('input', function() {{
+        if (editor.value !== lastContent) {{
+            undoStack.push(lastContent);
+            redoStack = [];
+            lastContent = editor.value;
+        }}
+    }});
 
-// Auto-save indicator
-let saveTimeout;
-editor.addEventListener('input', function() {{
-    clearTimeout(saveTimeout);
-    const status = document.getElementById('save-status');
-    status.textContent = 'Modified';
-    status.style.color = 'var(--warning)';
-    
-    saveTimeout = setTimeout(() => {{
-        status.textContent = '';
-    }}, 2000);
-}});
+    let saveTimeout;
+    editor.addEventListener('input', function() {{
+        clearTimeout(saveTimeout);
+        const status = document.getElementById('save-status');
+        status.textContent = 'Modified';
+        status.style.color = 'var(--warning)';
+        saveTimeout = setTimeout(() => {{
+            status.textContent = '';
+        }}, 2000);
+    }});
 
-// Save with Ctrl+S
-document.addEventListener('keydown', function(e) {{
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') {{
-        e.preventDefault();
-        document.getElementById('editor-form').submit();
-    }}
-    
-    // Ctrl+Z for undo
-    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {{
-        e.preventDefault();
-        undoEdit();
-    }}
-    
-    // Ctrl+Y or Ctrl+Shift+Z for redo
-    if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {{
-        e.preventDefault();
-        redoEdit();
-    }}
-}});
+    document.addEventListener('keydown', function(e) {{
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {{
+            e.preventDefault();
+            document.getElementById('editor-form').submit();
+        }}
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {{
+            e.preventDefault();
+            undoEdit();
+        }}
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {{
+            e.preventDefault();
+            redoEdit();
+        }}
+    }});
 
-// Initialize counts
-updateCounts();
-</script>
+    updateCounts();
+    </script>
 """
 
     return html

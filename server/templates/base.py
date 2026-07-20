@@ -5,20 +5,12 @@ Base HTML template with professional mobile-app design.
 
 
 from .. import __version__
-
+from urllib.parse import quote
+from ..utils.format import escape_html
+from ..utils.path import get_parent_path, build_path_breadcrumb
 
 def get_head(title: str, theme: str = "dark") -> str:
-    """
-    Get HTML head section.
-
-    Args:
-        title: Page title
-        theme: Theme (dark, light, auto)
-
-    Returns:
-        HTML head string
-    """
-    return f"""<!DOCTYPE html>
+    return f'''<!DOCTYPE html>
 <html lang="en" data-theme="{theme}">
 <head>
     <meta charset="utf-8">
@@ -174,7 +166,6 @@ def get_head(title: str, theme: str = "dark") -> str:
             padding: 0 16px;
         }}
 
-        /* Header - iOS style */
         .header {{
             background: var(--bg-secondary);
             border-bottom: 0.5px solid var(--border);
@@ -238,7 +229,6 @@ def get_head(title: str, theme: str = "dark") -> str:
             white-space: nowrap;
         }}
 
-        /* Search Bar - iOS style */
         .search-bar {{
             padding: 0 16px 12px;
         }}
@@ -279,7 +269,6 @@ def get_head(title: str, theme: str = "dark") -> str:
             background: var(--bg-tertiary);
         }}
 
-        /* Buttons - iOS style */
         .btn {{
             display: inline-flex;
             align-items: center;
@@ -355,7 +344,6 @@ def get_head(title: str, theme: str = "dark") -> str:
             opacity: 1;
         }}
 
-        /* Toolbar Actions */
         .toolbar {{
             display: flex;
             align-items: center;
@@ -374,7 +362,6 @@ def get_head(title: str, theme: str = "dark") -> str:
             flex: 1;
         }}
 
-        /* Segmented Control - iOS style */
         .segmented-control {{
             display: flex;
             background: var(--bg-tertiary);
@@ -403,7 +390,6 @@ def get_head(title: str, theme: str = "dark") -> str:
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }}
 
-        /* File List - iOS style */
         .file-list {{
             list-style: none;
         }}
@@ -550,7 +536,6 @@ def get_head(title: str, theme: str = "dark") -> str:
             background: var(--bg-active);
         }}
 
-        /* Flash Messages */
         .flash {{
             padding: 12px 16px;
             border-radius: var(--radius);
@@ -576,7 +561,6 @@ def get_head(title: str, theme: str = "dark") -> str:
             color: var(--warning);
         }}
 
-        /* Editor */
         .editor-container {{
             padding: 16px;
         }}
@@ -601,7 +585,6 @@ def get_head(title: str, theme: str = "dark") -> str:
             outline: none;
         }}
 
-        /* Upload Zone */
         .upload-zone {{
             padding: 32px 16px;
             margin: 12px 16px;
@@ -632,7 +615,6 @@ def get_head(title: str, theme: str = "dark") -> str:
             color: var(--text-primary);
         }}
 
-        /* Bottom Sheet - iOS style */
         .bottom-sheet {{
             position: fixed;
             bottom: 0;
@@ -704,7 +686,6 @@ def get_head(title: str, theme: str = "dark") -> str:
             text-align: center;
         }}
 
-        /* Batch Actions Bar */
         .batch-bar {{
             position: fixed;
             bottom: 0;
@@ -736,7 +717,6 @@ def get_head(title: str, theme: str = "dark") -> str:
             gap: 8px;
         }}
 
-        /* Empty State */
         .empty-state {{
             text-align: center;
             padding: 64px 32px;
@@ -760,7 +740,6 @@ def get_head(title: str, theme: str = "dark") -> str:
             margin: 0 auto;
         }}
 
-        /* Toast Notifications */
         .toast-container {{
             position: fixed;
             top: calc(16px + var(--safe-top));
@@ -805,7 +784,6 @@ def get_head(title: str, theme: str = "dark") -> str:
             }}
         }}
 
-        /* Footer */
         .footer {{
             background: var(--bg-secondary);
             border-top: 0.5px solid var(--border);
@@ -831,7 +809,6 @@ def get_head(title: str, theme: str = "dark") -> str:
             align-items: center;
         }}
 
-        /* Preview */
         .preview-container {{
             padding: 16px;
         }}
@@ -883,7 +860,6 @@ def get_head(title: str, theme: str = "dark") -> str:
             -webkit-overflow-scrolling: touch;
         }}
 
-        /* Modal */
         .modal-overlay {{
             position: fixed;
             top: 0;
@@ -938,7 +914,6 @@ def get_head(title: str, theme: str = "dark") -> str:
             margin-top: 24px;
         }}
 
-        /* Responsive - Mobile First */
         @media (min-width: 769px) {{
             .file-group {{
                 margin: 0;
@@ -957,14 +932,12 @@ def get_head(title: str, theme: str = "dark") -> str:
             }}
         }}
 
-        /* Tablet */
         @media (min-width: 769px) and (max-width: 1024px) {{
             .file-action-btn {{
                 opacity: 1;
             }}
         }}
 
-        /* Theme Toggle */
         .theme-toggle {{
             width: 44px;
             height: 44px;
@@ -984,7 +957,6 @@ def get_head(title: str, theme: str = "dark") -> str:
             background: var(--bg-hover);
         }}
 
-        /* Checkbox - iOS style */
         input[type="checkbox"] {{
             display: none;
         }}
@@ -1026,7 +998,6 @@ def get_head(title: str, theme: str = "dark") -> str:
             color: var(--text-secondary);
         }}
 
-        /* Loading State */
         .loading {{
             display: flex;
             align-items: center;
@@ -1051,7 +1022,6 @@ def get_head(title: str, theme: str = "dark") -> str:
             }}
         }}
 
-        /* Action Sheet */
         .action-sheet {{
             position: fixed;
             bottom: 0;
@@ -1119,7 +1089,6 @@ def get_head(title: str, theme: str = "dark") -> str:
             width: 100%;
         }}
 
-        /* Utility */
         .hidden {{
             display: none !important;
         }}
@@ -1136,7 +1105,57 @@ def get_head(title: str, theme: str = "dark") -> str:
             margin-bottom: 8px;
         }}
     </style>
-</head>"""
+</head>'''
+
+
+def _render_header(
+    back_url: str,
+    title: str,
+    actions_html: str = "",
+    breadcrumb_html: str = "",
+    extra_html: str = "",
+    back_icon: str = "←",
+):
+    return f'''
+<div class="header">
+    <div class="header-content">
+        <div class="header-top">
+            <a href="{back_url}" class="btn-icon">{back_icon}</a>
+            <span class="header-title">{title}</span>
+            <div class="header-actions">
+                {actions_html}
+                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌓</button>
+            </div>
+        </div>
+        <div class="breadcrumb">{breadcrumb_html}</div>
+    </div>
+    {extra_html}
+</div>'''
+    return f'''
+<div class="header">
+    <div class="header-content">
+        <div class="header-top">
+            <a href="{back_url}" class="btn-icon">←</a>
+            <span class="header-title">{title}</span>
+            <div class="header-actions">
+                {actions_html}
+                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌓</button>
+            </div>
+        </div>
+        <div class="breadcrumb">{breadcrumb_html}</div>
+    </div>
+    {extra_html}
+</div>'''
+    """
+    Get HTML head section.
+
+    Args:
+        title: Page title
+        theme: Theme (dark, light, auto)
+
+    Returns:
+        HTML head string
+    """
 
 
 def get_footer(version: str = __version__) -> str:

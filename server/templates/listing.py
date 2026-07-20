@@ -9,6 +9,7 @@ from ..storage import FileInfo, format_size, get_icon_for_file
 from ..utils.format import escape_html
 from ..utils.path import get_parent_path, build_path_breadcrumb
 from .. import UPLOAD, SEARCH, DOWNLOAD, RAW, DELETE, DOWNLOAD_SELECTED
+from .base import _render_header
 def render_listing(
     files: List[FileInfo],
     current_path: str,
@@ -73,19 +74,7 @@ def render_listing(
     
     file_list_html = "".join(file_items)
     
-    html = f"""
-<div class="header">
-    <div class="header-content">
-        <div class="header-top">
-            <a href="/?p={quote(get_parent_path(current_path))}" class="btn-icon">⬆️</a>
-            <span class="header-title">{escape_html(_get_display_name(current_path))}</span>
-            <div class="header-actions">
-                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">\U0001f313</button>
-            </div>
-        </div>
-        <div class="breadcrumb">{breadcrumb}</div>
-    </div>
-    {search_html}
+    toolbar_html = f'''
     <div class="toolbar">
         <div class="segmented-control">
             <a href="/?p={encoded_path}&sort=name" class="segmented-btn {'active' if sort_by == 'name' else ''}">Name</a>
@@ -97,187 +86,175 @@ def render_listing(
             <div class="checkbox-indicator"></div>
             <span class="checkbox-label">Hidden</span>
         </label>
-    </div>
-</div>
-
-<div class="container">
+    </div>'''
+    header_html = _render_header(
+        back_url=f"/?p={quote(get_parent_path(current_path))}",
+        title=escape_html(_get_display_name(current_path)),
+        breadcrumb_html=breadcrumb,
+        extra_html=search_html + toolbar_html,
+        back_icon='⬆️',
+    )
+    html = f"""
+    {header_html}
+    <div class="container">
     {flash_html}
     {upload_html}
     {empty_html}
     {file_list_html}
     {_build_pagination(page, total_pages, current_path, search_query)}
-</div>
-
-<div id="batch-bar" class="batch-bar">
-    <span id="batch-count" class="batch-info">0 selected</span>
-    <div class="batch-actions">
-        <button class="btn btn-sm btn-ghost" onclick="downloadSelected()">\U0001f4e6 ZIP</button>
-        <button class="btn btn-sm btn-danger" onclick="deleteSelected()">\U0001f5d1\ufe0f Delete</button>
-        <button class="btn btn-sm btn-ghost" onclick="clearSelection()">Clear</button>
     </div>
-</div>
 
-<script>
-let selectedFiles = new Set();
+    <div id="batch-bar" class="batch-bar">
+        <span id="batch-count" class="batch-info">0 selected</span>
+        <div class="batch-actions">
+            <button class="btn btn-sm btn-ghost" onclick="downloadSelected()">\U0001f4e6 ZIP</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteSelected()">\U0001f5d1\ufe0f Delete</button>
+            <button class="btn btn-sm btn-ghost" onclick="clearSelection()">Clear</button>
+        </div>
+    </div>
 
-function clearSelection() {{
-    selectedFiles.clear();
-    updateBatchBar();
-    
-    document.querySelectorAll('.file-checkbox').forEach(cb => {{
-        cb.classList.remove('checked');
-    }});
-    
-    document.querySelectorAll('.file-item').forEach(item => {{
-        item.classList.remove('selected');
-    }});
-}}
+    <script>
+    let selectedFiles = new Set();
 
-function toggleFileSelect(path, element) {{
-    if (selectedFiles.has(path)) {{
-        selectedFiles.delete(path);
-        element.classList.remove('checked');
-        element.closest('.file-item').classList.remove('selected');
-    }} else {{
-        selectedFiles.add(path);
-        element.classList.add('checked');
-        element.closest('.file-item').classList.add('selected');
+    function clearSelection() {{
+        selectedFiles.clear();
+        updateBatchBar();
+        document.querySelectorAll('.file-checkbox').forEach(cb => {{
+            cb.classList.remove('checked');
+        }});
+        document.querySelectorAll('.file-item').forEach(item => {{
+            item.classList.remove('selected');
+        }});
     }}
-    
-    updateBatchBar();
-}}
 
-function updateBatchBar() {{
-    const batchBar = document.getElementById('batch-bar');
-    const batchCount = document.getElementById('batch-count');
-    const footer = document.querySelector('.footer');
-    
-    if (selectedFiles.size > 0) {{
-        batchBar.classList.add('active');
-        if (footer) footer.classList.add('hidden-by-batch');
-        batchCount.textContent = `${{selectedFiles.size}} selected`;
-    }} else {{
-        batchBar.classList.remove('active');
-        if (footer) footer.classList.remove('hidden-by-batch');
+    function toggleFileSelect(path, element) {{
+        if (selectedFiles.has(path)) {{
+            selectedFiles.delete(path);
+            element.classList.remove('checked');
+            element.closest('.file-item').classList.remove('selected');
+        }} else {{
+            selectedFiles.add(path);
+            element.classList.add('checked');
+            element.closest('.file-item').classList.add('selected');
+        }}
+        updateBatchBar();
     }}
-}}
 
-function downloadSelected() {{
-    if (selectedFiles.size === 0) return;
-    
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = '{DOWNLOAD_SELECTED}';
-    
-    const pathInput = document.createElement('input');
-    pathInput.type = 'hidden';
-    pathInput.name = 'p';
-    pathInput.value = '{escape_html(current_path)}';
-    form.appendChild(pathInput);
-    
-    const csrfInput = document.createElement('input');
-    csrfInput.type = 'hidden';
-    csrfInput.name = '_csrf';
-    csrfInput.value = '{escape_html(csrf_token)}';
-    form.appendChild(csrfInput);
-    
-    selectedFiles.forEach(f => {{
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'files';
-        input.value = f;
-        form.appendChild(input);
-    }});
-    
-    document.body.appendChild(form);
-    form.submit();
-}}
+    function updateBatchBar() {{
+        const batchBar = document.getElementById('batch-bar');
+        const batchCount = document.getElementById('batch-count');
+        const footer = document.querySelector('.footer');
+        if (selectedFiles.size > 0) {{
+            batchBar.classList.add('active');
+            if (footer) footer.classList.add('hidden-by-batch');
+            batchCount.textContent = `${{selectedFiles.size}} selected`;
+        }} else {{
+            batchBar.classList.remove('active');
+            if (footer) footer.classList.remove('hidden-by-batch');
+        }}
+    }}
 
-function deleteSelected() {{
-    if (selectedFiles.size === 0) return;
-    
-    if (!confirm(`Delete ${{selectedFiles.size}} items?`)) return;
-    
-    selectedFiles.forEach(path => {{
+    function downloadSelected() {{
+        if (selectedFiles.size === 0) return;
         const form = document.createElement('form');
         form.method = 'POST';
-        form.action = '{DELETE}';
-        
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'p';
-        input.value = path;
-        form.appendChild(input);
-        
+        form.action = '{DOWNLOAD_SELECTED}';
+        const pathInput = document.createElement('input');
+        pathInput.type = 'hidden';
+        pathInput.name = 'p';
+        pathInput.value = '{escape_html(current_path)}';
+        form.appendChild(pathInput);
         const csrfInput = document.createElement('input');
         csrfInput.type = 'hidden';
         csrfInput.name = '_csrf';
         csrfInput.value = '{escape_html(csrf_token)}';
         form.appendChild(csrfInput);
-        
+        selectedFiles.forEach(f => {{
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'files';
+            input.value = f;
+            form.appendChild(input);
+        }});
         document.body.appendChild(form);
         form.submit();
-    }});
-}}
-
-function toggleHidden(show) {{
-    const url = new URL(window.location);
-    url.searchParams.set('hidden', show ? '1' : '0');
-    window.location.href = url.toString();
-}}
-
-function confirmDelete(name) {{
-    return confirm(`Delete "${{name}}"?`);
-}}
-
-// File input change handler
-const fileInput = document.getElementById('file-input');
-if (fileInput) {{
-    fileInput.addEventListener('change', function() {{
-        if (this.files.length > 0) {{
-            document.getElementById('upload-form').submit();
-        }}
-    }});
-}}
-
-// Drag and drop
-const uploadZone = document.getElementById('upload-zone');
-if (uploadZone) {{
-    ['dragenter', 'dragover'].forEach(eventName => {{
-        uploadZone.addEventListener(eventName, e => {{
-            e.preventDefault();
-            e.stopPropagation();
-            uploadZone.classList.add('dragover');
-        }});
-    }});
-    
-    ['dragleave', 'drop'].forEach(eventName => {{
-        uploadZone.addEventListener(eventName, e => {{
-            e.preventDefault();
-            e.stopPropagation();
-            uploadZone.classList.remove('dragover');
-        }});
-    }});
-    
-    uploadZone.addEventListener('drop', e => {{
-        const input = uploadZone.querySelector('input[type="file"]');
-        if (input) {{
-            input.files = e.dataTransfer.files;
-            input.dispatchEvent(new Event('change'));
-        }}
-    }});
-}})
-
-// E to edit first file
-document.addEventListener('keydown', function(e) {{
-    if (e.key === 'e' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {{
-        const firstEditLink = document.querySelector('.file-item:not(.selected) .file-name a[href*="edit=1"]');
-        if (firstEditLink) {{
-            window.location.href = firstEditLink.href;
-        }}
     }}
-}});
-</script>
+
+    function deleteSelected() {{
+        if (selectedFiles.size === 0) return;
+        if (!confirm(`Delete ${{selectedFiles.size}} items?`)) return;
+        selectedFiles.forEach(path => {{
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{DELETE}';
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'p';
+            input.value = path;
+            form.appendChild(input);
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = '_csrf';
+            csrfInput.value = '{escape_html(csrf_token)}';
+            form.appendChild(csrfInput);
+            document.body.appendChild(form);
+            form.submit();
+        }});
+    }}
+
+    function toggleHidden(show) {{
+        const url = new URL(window.location);
+        url.searchParams.set('hidden', show ? '1' : '0');
+        window.location.href = url.toString();
+    }}
+
+    function confirmDelete(name) {{
+        return confirm(`Delete "${{name}}"?`);
+    }}
+
+    const fileInput = document.getElementById('file-input');
+    if (fileInput) {{
+        fileInput.addEventListener('change', function() {{
+            if (this.files.length > 0) {{
+                document.getElementById('upload-form').submit();
+            }}
+        }});
+    }}
+
+    const uploadZone = document.getElementById('upload-zone');
+    if (uploadZone) {{
+        ['dragenter', 'dragover'].forEach(eventName => {{
+            uploadZone.addEventListener(eventName, e => {{
+                e.preventDefault();
+                e.stopPropagation();
+                uploadZone.classList.add('dragover');
+            }});
+        }});
+        ['dragleave', 'drop'].forEach(eventName => {{
+            uploadZone.addEventListener(eventName, e => {{
+                e.preventDefault();
+                e.stopPropagation();
+                uploadZone.classList.remove('dragover');
+            }});
+        }});
+        uploadZone.addEventListener('drop', e => {{
+            const input = uploadZone.querySelector('input[type="file"]');
+            if (input) {{
+                input.files = e.dataTransfer.files;
+                input.dispatchEvent(new Event('change'));
+            }}
+        }});
+    }})
+
+    document.addEventListener('keydown', function(e) {{
+        if (e.key === 'e' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {{
+            const firstEditLink = document.querySelector('.file-item:not(.selected) .file-name a[href*="edit=1"]');
+            if (firstEditLink) {{
+                window.location.href = firstEditLink.href;
+            }}
+        }}
+    }});
+    </script>
 """
     return html
 

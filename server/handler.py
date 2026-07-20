@@ -39,14 +39,12 @@ from .utils.format import escape_html
 
 logger = logging.getLogger(__name__)
 
-# Maximum size for form POST bodies (10MB, separate from file uploads)
 MAX_FORM_BODY_SIZE = 10 * 1024 * 1024
 
 
 class FileServerHandler(BaseHTTPRequestHandler):
     """HTTP request handler for the file server."""
 
-    # Class-level shared state (set by create_handler_class)
     _config: Config = None
     _rate_limiter: Optional[RateLimiter] = None
     _ip_filter: Optional[IPFilter] = None
@@ -54,21 +52,15 @@ class FileServerHandler(BaseHTTPRequestHandler):
     _csrf_secret: Optional[bytes] = None
 
     def __init__(self, *args, **kwargs):
-        """Initialize handler with configuration."""
         self.config = self._config
         self.storage = Storage(
             root=self.config.get_root_path(),
             show_hidden=self.config.ui.show_hidden,
         )
-
-        # Reuse class-level shared instances
         self.rate_limiter = self._rate_limiter
         self.ip_filter = self._ip_filter
         self.security_headers = self._security_headers
-
-        # Generate per-request CSRF token (server-secret + client IP + hour window)
         self.csrf_token = self._generate_csrf_token()
-
         super().__init__(*args, **kwargs)
 
     def _get_csrf_secret(self) -> bytes:
@@ -93,13 +85,11 @@ class FileServerHandler(BaseHTTPRequestHandler):
         return False
 
     def setup(self):
-        """Set up the handler."""
         super().setup()
         self.request_id = str(uuid.uuid4())[:8]
         self.start_time = time.time()
 
     def log_message(self, format, *args):
-        """Log request with custom format."""
         logger.info(
             f"[{self.request_id}] {self.address_string()} - {format % args}",
             extra={
@@ -117,18 +107,15 @@ class FileServerHandler(BaseHTTPRequestHandler):
         content_type: str = "text/html; charset=utf-8",
         extra_headers: Optional[Dict[str, str]] = None,
     ):
-        """Send HTTP response with security headers."""
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
         self.send_header("X-Request-ID", self.request_id)
 
-        # Add security headers
         for key, value in self.security_headers.get_headers().items():
             self.send_header(key, value)
 
-        # Add custom headers
         if extra_headers:
             for key, value in extra_headers.items():
                 self.send_header(key, value)
@@ -144,7 +131,6 @@ class FileServerHandler(BaseHTTPRequestHandler):
         content_type: str,
         extra_headers: Optional[Dict[str, str]] = None,
     ):
-        """Send a file as a streaming response (avoids loading into memory)."""
         stat = file_path.stat()
         file_size = stat.st_size
 
@@ -174,21 +160,31 @@ class FileServerHandler(BaseHTTPRequestHandler):
             logger.exception(f"Error streaming file: {e}")
 
     def _send_html(self, status: int, html: str, title: str = "File Server"):
-        """Send HTML response wrapped in base template."""
         full_html = get_base_html(title, html, self.config.ui.theme)
         self._send_response(status, full_html.encode("utf-8"))
 
     def _send_error(self, status: int, message: str, details: Optional[str] = None):
-        """Send error response."""
         html = render_error(status, message, details, self.request_id)
         self._send_html(status, html, f"Error {status}")
 
     def _send_redirect(self, location: str, status: int = 303):
-        """Send redirect response."""
         self.send_response(status)
         self.send_header("Location", location)
         self.send_header("X-Request-ID", self.request_id)
         self.end_headers()
+
+    def _resolve_path(self, rel_path: str) -> Optional[Path]:
+        try:
+            return PathSecurity.safe_join(self.config.get_root_path(), rel_path)
+        except ValueError as e:
+            self._send_error(400, f"Invalid path: {e}")
+            return None
+
+    def _check_feature(self, attr: str, label: str) -> bool:
+        if not getattr(self.config.features, attr, True):
+            self._send_error(403, f"{label} disabled")
+            return False
+        return True
 
     def _check_rate_limit(self) -> bool:
         if not self.rate_limiter:
@@ -213,22 +209,18 @@ class FileServerHandler(BaseHTTPRequestHandler):
         return True
 
     def _check_ip_filter(self) -> bool:
-        """Check if client IP is allowed."""
         client_ip = get_client_ip(self)
         return self.ip_filter.is_allowed(client_ip)
 
     def _get_query_params(self) -> Dict[str, str]:
-        """Get query parameters as dictionary."""
         parsed = urlparse(self.path)
         params = parse_qs(parsed.query)
         return {k: v[0] if v else "" for k, v in params.items()}
 
     def _get_form_data(self) -> Dict[str, str]:
-        """Get form data from POST request with body size limit."""
         content_type = self.headers.get("Content-Type", "")
 
         if content_type.startswith("application/x-www-form-urlencoded"):
-            # Use buffered body if available (from CSRF validation)
             if hasattr(self, '_buffered_body') and self._buffered_body:
                 params = parse_qs(self._buffered_body.decode('utf-8'))
                 return {k: v[0] if v else "" for k, v in params.items()}
@@ -243,13 +235,11 @@ class FileServerHandler(BaseHTTPRequestHandler):
         return {}
 
     def _get_multipart_data(self) -> Tuple[Dict[str, str], Dict[str, Tuple[str, bytes]]]:
-        """Get multipart form data with body size limit."""
         content_type = self.headers.get("Content-Type", "")
 
         if not content_type.startswith("multipart/form-data"):
             return {}, {}
 
-        # Extract boundary
         boundary = content_type.split("boundary=", 1)[1].strip().strip('"')
         if not boundary:
             return {}, {}
@@ -268,7 +258,6 @@ class FileServerHandler(BaseHTTPRequestHandler):
             if not part or part == b"--":
                 continue
 
-            # Split headers and body
             header_end = part.find(b"\r\n\r\n")
             if header_end == -1:
                 continue
@@ -276,19 +265,16 @@ class FileServerHandler(BaseHTTPRequestHandler):
             header_data = part[:header_end]
             file_data = part[header_end + 4:].rstrip(b"\r\n")
 
-            # Parse headers
             headers = {}
             for line in header_data.decode("utf-8", errors="replace").split("\r\n"):
                 if ":" in line:
                     key, value = line.split(":", 1)
                     headers[key.strip().lower()] = value.strip()
 
-            # Get content disposition
             disposition = headers.get("content-disposition", "")
             if not disposition:
                 continue
 
-            # Extract name
             name_match = None
             for item in disposition.split(";"):
                 item = item.strip()
@@ -299,7 +285,6 @@ class FileServerHandler(BaseHTTPRequestHandler):
             if not name_match:
                 continue
 
-            # Check if it's a file
             filename_match = None
             for item in disposition.split(";"):
                 item = item.strip()
@@ -315,23 +300,18 @@ class FileServerHandler(BaseHTTPRequestHandler):
         return fields, files
 
     def do_GET(self):
-        """Handle GET requests."""
         try:
-            # Check rate limit
             if not self._check_rate_limit():
                 return
 
-            # Check IP filter
             if not self._check_ip_filter():
                 self._send_error(403, "Access denied")
                 return
 
-            # Parse request
             parsed = urlparse(self.path)
             path = parsed.path
             params = self._get_query_params()
 
-            # Route request
             if path == ROOT or path == "":
                 self._handle_root(params)
             elif path == RAW:
@@ -354,27 +334,21 @@ class FileServerHandler(BaseHTTPRequestHandler):
             self._send_error(500, "Internal server error", str(e))
 
     def do_POST(self):
-        """Handle POST requests."""
         try:
-            # Check rate limit
             if not self._check_rate_limit():
                 return
 
-            # Check IP filter
             if not self._check_ip_filter():
                 self._send_error(403, "Access denied")
                 return
 
-            # Validate CSRF token
             if not self._validate_post_csrf():
                 self._send_error(403, "CSRF validation failed. Please refresh the page and try again.")
                 return
 
-            # Parse request
             parsed = urlparse(self.path)
             path = parsed.path
 
-            # Route request
             if path == SAVE:
                 self._handle_save()
             elif path == UPLOAD:
@@ -399,41 +373,27 @@ class FileServerHandler(BaseHTTPRequestHandler):
             self._send_error(500, "Internal server error", str(e))
 
     def _validate_post_csrf(self) -> bool:
-        """Validate CSRF protection on POST requests.
-
-        Strategy: Check the Origin/Referer header to ensure the request
-        comes from the same host. This prevents cross-site request forgery
-        without requiring token state on the server.
-        """
         origin = self.headers.get('Origin')
         referer = self.headers.get('Referer')
 
-        # Build expected origin
         scheme = 'https' if self.config.security.ssl.enabled else 'http'
         host = self.headers.get('Host', f'{self.config.server.host}:{self.config.server.port}')
         expected_origin = f'{scheme}://{host}'
 
         if origin:
-            # Origin header present — must match our host
             if origin != expected_origin:
                 return False
 
         elif referer:
-            # Referer header present — must start with our origin
             if not referer.startswith(expected_origin):
                 return False
 
-        # For multipart/form-data (file uploads), we rely on Origin/Referer only
-        # since reading the body to get the token would consume the stream.
-        # We also buffer the form body for form-urlencoded so downstream handlers
-        # can still read it.
         content_type = self.headers.get('Content-Type', '')
         if content_type.startswith('multipart/form-data'):
             return True
 
         if content_type.startswith('application/x-www-form-urlencoded'):
             try:
-                # Read and buffer the body so it can be re-read by handlers
                 content_length = int(self.headers.get('Content-Length', 0))
                 if content_length > 0 and content_length <= MAX_FORM_BODY_SIZE:
                     raw_body = self.rfile.read(content_length)
@@ -449,11 +409,9 @@ class FileServerHandler(BaseHTTPRequestHandler):
         return True
 
     def do_HEAD(self):
-        """Handle HEAD requests."""
         self.do_GET()
 
     def _handle_root(self, params: Dict[str, str]):
-        """Handle root path request."""
         rel_path = params.get("p", "")
         sort_by = params.get("sort", self.config.ui.default_sort)
         show_hidden = params.get("hidden", "1" if self.config.ui.show_hidden else "0") == "1"
@@ -462,21 +420,16 @@ class FileServerHandler(BaseHTTPRequestHandler):
         except ValueError:
             page = 1
 
-        # Check if edit mode
         if "edit" in params and rel_path and not rel_path.endswith("/"):
             self._handle_editor(params)
             return
 
-        # Check if preview mode
         if "preview" in params and rel_path and not rel_path.endswith("/"):
             self._handle_preview(params)
             return
 
-        # Build path
-        try:
-            target = PathSecurity.safe_join(self.config.get_root_path(), rel_path)
-        except ValueError as e:
-            self._send_error(400, f"Invalid path: {e}")
+        target = self._resolve_path(rel_path)
+        if target is None:
             return
 
         if not target.exists():
@@ -484,14 +437,11 @@ class FileServerHandler(BaseHTTPRequestHandler):
             return
 
         if target.is_file():
-            # Show preview for files
             self._handle_preview(params)
             return
 
-        # List directory
         files = self.storage.list_directory(target, sort_by=sort_by, show_hidden=show_hidden)
 
-        # Pagination
         per_page = self.config.ui.items_per_page
         total_pages = max(1, (len(files) + per_page - 1) // per_page)
         page = max(1, min(page, total_pages))
@@ -499,7 +449,6 @@ class FileServerHandler(BaseHTTPRequestHandler):
         end_idx = start_idx + per_page
         page_files = files[start_idx:end_idx]
 
-        # Render listing
         html = render_listing(
             files=page_files,
             current_path=rel_path,
@@ -520,16 +469,12 @@ class FileServerHandler(BaseHTTPRequestHandler):
         self._send_html(200, html, f"/{escape_html(rel_path)}" if rel_path else "Home")
 
     def _handle_editor(self, params: Dict[str, str]):
-        """Handle file editor request."""
-        if not self.config.features.edit:
-            self._send_error(403, "Editing disabled")
+        if not self._check_feature('edit', 'Editing'):
             return
         rel_path = params.get("p", "")
 
-        try:
-            target = PathSecurity.safe_join(self.config.get_root_path(), rel_path)
-        except ValueError as e:
-            self._send_error(400, f"Invalid path: {e}")
+        target = self._resolve_path(rel_path)
+        if target is None:
             return
 
         if not target.exists():
@@ -540,14 +485,12 @@ class FileServerHandler(BaseHTTPRequestHandler):
             self._send_error(400, "Not a file")
             return
 
-        # Read file content
         try:
             content = target.read_text(encoding="utf-8", errors="replace")
         except (OSError, PermissionError) as e:
             self._send_error(500, f"Error reading file: {e}")
             return
 
-        # Render editor
         html = render_editor(
             file_path=rel_path,
             content=content,
@@ -557,13 +500,10 @@ class FileServerHandler(BaseHTTPRequestHandler):
         self._send_html(200, html, f"Edit: {escape_html(rel_path)}")
 
     def _handle_preview(self, params: Dict[str, str]):
-        """Handle file preview request."""
         rel_path = params.get("p", "")
 
-        try:
-            target = PathSecurity.safe_join(self.config.get_root_path(), rel_path)
-        except ValueError as e:
-            self._send_error(400, f"Invalid path: {e}")
+        target = self._resolve_path(rel_path)
+        if target is None:
             return
 
         if not target.exists():
@@ -574,12 +514,10 @@ class FileServerHandler(BaseHTTPRequestHandler):
             self._send_error(400, "Not a file")
             return
 
-        # Get file info
         stat = target.stat()
         mime_type = guess_mime_type(target.name)
         is_text = self.storage.is_text_file(target)
 
-        # Read content for text files
         content = None
         if is_text:
             try:
@@ -587,7 +525,6 @@ class FileServerHandler(BaseHTTPRequestHandler):
             except (OSError, PermissionError, UnicodeDecodeError):
                 logger.warning(f"Could not read file content for preview: {rel_path}")
 
-        # Render preview
         html = render_preview(
             file_path=rel_path,
             file_name=target.name,
@@ -601,13 +538,10 @@ class FileServerHandler(BaseHTTPRequestHandler):
         self._send_html(200, html, escape_html(target.name))
 
     def _handle_raw(self, params: Dict[str, str]):
-        """Handle raw file download."""
         rel_path = params.get("p", "")
 
-        try:
-            target = PathSecurity.safe_join(self.config.get_root_path(), rel_path)
-        except ValueError as e:
-            self._send_error(400, f"Invalid path: {e}")
+        target = self._resolve_path(rel_path)
+        if target is None:
             return
 
         if not target.exists():
@@ -618,12 +552,10 @@ class FileServerHandler(BaseHTTPRequestHandler):
             self._send_error(400, "Not a file")
             return
 
-        # Get file info
         stat = target.stat()
         mime_type = guess_mime_type(target.name) or "application/octet-stream"
         last_modified = time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime(stat.st_mtime))
 
-        # Check If-Modified-Since for conditional requests
         if_modified_since = self.headers.get('If-Modified-Since')
         if if_modified_since:
             try:
@@ -637,21 +569,18 @@ class FileServerHandler(BaseHTTPRequestHandler):
             except (ValueError, TypeError, OverflowError):
                 pass
 
-        # Set headers
         extra_headers = {
             "Content-Disposition": get_content_disposition(target.name, mime_type),
             "Content-Length": str(stat.st_size),
             "Last-Modified": last_modified,
         }
 
-        # Send file using streaming to avoid loading into memory
         try:
             self._send_file_stream(target, mime_type, extra_headers)
         except (OSError, PermissionError) as e:
             self._send_error(500, f"Error reading file: {e}")
 
     def _handle_search(self, params: Dict[str, str]):
-        """Handle search request."""
         query = params.get("q", "")
         rel_path = params.get("p", "")
         show_hidden = params.get("hidden", "1" if self.config.ui.show_hidden else "0") == "1"
@@ -660,17 +589,12 @@ class FileServerHandler(BaseHTTPRequestHandler):
             self._send_redirect(f"/?p={quote(rel_path)}")
             return
 
-        # Build search path
-        try:
-            search_path = PathSecurity.safe_join(self.config.get_root_path(), rel_path)
-        except ValueError as e:
-            self._send_error(400, f"Invalid path: {e}")
+        search_path = self._resolve_path(rel_path)
+        if search_path is None:
             return
 
-        # Search
         results = self.storage.search(query, search_path, show_hidden=show_hidden)
 
-        # Render results
         html = render_listing(
             files=results,
             current_path=rel_path,
@@ -692,30 +616,24 @@ class FileServerHandler(BaseHTTPRequestHandler):
         self._send_html(200, html, f"Search: {escape_html(query)}")
 
     def _handle_download(self, params: Dict[str, str]):
-        """Handle folder download as ZIP."""
-        if not self.config.features.download_zip:
-            self._send_error(403, "Downloads disabled")
+        if not self._check_feature('download_zip', 'Downloads'):
             return
 
         rel_path = params.get("p", "")
 
-        try:
-            target = PathSecurity.safe_join(self.config.get_root_path(), rel_path)
-        except ValueError as e:
-            self._send_error(400, f"Invalid path: {e}")
+        target = self._resolve_path(rel_path)
+        if target is None:
             return
 
         if not target.exists():
             self._send_error(404, f"Path not found: {escape_html(rel_path)}")
             return
 
-        # Create ZIP as temp file and stream it
         zip_path = self.storage.create_zip_file([target])
         if not zip_path:
             self._send_error(500, "Error creating ZIP")
             return
 
-        # Send ZIP
         filename = f"{target.name}.zip"
         extra_headers = {
             "Content-Disposition": f'attachment; filename="{filename}"',
@@ -726,24 +644,18 @@ class FileServerHandler(BaseHTTPRequestHandler):
             zip_path.unlink(missing_ok=True)
 
     def _handle_api_files(self, params: Dict[str, str]):
-        """Handle API file listing request."""
         rel_path = params.get("p", "")
         sort_by = params.get("sort", "name")
 
-        try:
-            target = PathSecurity.safe_join(self.config.get_root_path(), rel_path)
-        except ValueError as e:
-            self._send_error(400, f"Invalid path: {e}")
+        target = self._resolve_path(rel_path)
+        if target is None:
             return
 
         if not target.is_dir():
             self._send_error(400, "Not a directory")
             return
 
-        # List files
         files = self.storage.list_directory(target, sort_by=sort_by)
-
-        # Convert to JSON
         data = [f.to_dict() for f in files]
 
         self._send_response(
@@ -753,7 +665,6 @@ class FileServerHandler(BaseHTTPRequestHandler):
         )
 
     def _handle_health(self):
-        """Handle health check request."""
         data = {
             "status": "healthy",
             "version": __version__,
@@ -762,39 +673,28 @@ class FileServerHandler(BaseHTTPRequestHandler):
         self._send_response(200, json.dumps(data).encode("utf-8"), "application/json")
 
     def _handle_save(self):
-        """Handle file save request."""
-        if not self.config.features.edit:
-            self._send_error(403, "Editing disabled")
+        if not self._check_feature('edit', 'Editing'):
             return
 
-        # Get form data
         form = self._get_form_data()
         rel_path = form.get("p", "")
         content = form.get("content", "")
 
-        try:
-            target = PathSecurity.safe_join(self.config.get_root_path(), rel_path)
-        except ValueError as e:
-            self._send_error(400, f"Invalid path: {e}")
+        target = self._resolve_path(rel_path)
+        if target is None:
             return
 
-        # Save file
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(content, encoding="utf-8")
-
-            # Redirect back to editor
             self._send_redirect(f"/?p={quote(rel_path)}&edit=1&saved=1")
         except (OSError, PermissionError) as e:
             self._send_error(500, f"Error saving file: {e}")
 
     def _handle_upload(self):
-        """Handle file upload request."""
-        if not self.config.features.upload:
-            self._send_error(403, "Uploads disabled")
+        if not self._check_feature('upload', 'Uploads'):
             return
 
-        # Get multipart data
         fields, files = self._get_multipart_data()
         rel_path = fields.get("p", "")
 
@@ -802,30 +702,22 @@ class FileServerHandler(BaseHTTPRequestHandler):
             self._send_redirect(f"/?p={quote(rel_path)}&error=no_files")
             return
 
-        # Build target directory
-        try:
-            target_dir = PathSecurity.safe_join(self.config.get_root_path(), rel_path)
-        except ValueError as e:
-            self._send_error(400, f"Invalid path: {e}")
+        target_dir = self._resolve_path(rel_path)
+        if target_dir is None:
             return
 
         target_dir.mkdir(parents=True, exist_ok=True)
 
-        # Save files
         saved = []
         for field_name, (filename, data) in files.items():
-            # Sanitize filename
             safe_name = PathSecurity.sanitize_filename(filename)
             if not safe_name:
                 continue
 
-            # Check file size
             if len(data) > self.config.server.max_upload_size:
                 continue
 
-            # Save file
             target_file = target_dir / safe_name
-            # Avoid overwriting existing files
             if target_file.exists():
                 stem = target_file.stem
                 suffix = target_file.suffix
@@ -844,7 +736,6 @@ class FileServerHandler(BaseHTTPRequestHandler):
             except (OSError, PermissionError) as e:
                 logger.exception(f"Error saving file {safe_name}: {e}")
 
-        # Redirect
         if saved:
             msg = f"Uploaded: {', '.join(saved)}"
             self._send_redirect(f"/?p={quote(rel_path)}&success={quote(msg)}")
@@ -852,12 +743,9 @@ class FileServerHandler(BaseHTTPRequestHandler):
             self._send_redirect(f"/?p={quote(rel_path)}&error=upload_failed")
 
     def _handle_mkdir(self):
-        """Handle directory creation request."""
-        if not self.config.features.mkdir:
-            self._send_error(403, "Directory creation disabled")
+        if not self._check_feature('mkdir', 'Directory creation'):
             return
 
-        # Get form data
         form = self._get_form_data()
         rel_path = form.get("p", "")
         dir_name = form.get("name", "").strip()
@@ -866,22 +754,14 @@ class FileServerHandler(BaseHTTPRequestHandler):
             self._send_error(400, "Directory name required")
             return
 
-        # Validate directory name
         if "/" in dir_name or "\\" in dir_name or ".." in dir_name:
             self._send_error(400, "Invalid directory name")
             return
 
-        # Build target path
-        try:
-            target = PathSecurity.safe_join(
-                self.config.get_root_path(),
-                f"{rel_path}/{dir_name}" if rel_path else dir_name
-            )
-        except ValueError as e:
-            self._send_error(400, f"Invalid path: {e}")
+        target = self._resolve_path(f"{rel_path}/{dir_name}" if rel_path else dir_name)
+        if target is None:
             return
 
-        # Create directory
         try:
             target.mkdir(parents=True, exist_ok=True)
             self._send_redirect(f"/?p={quote(str(target.relative_to(self.config.get_root_path())))}")
@@ -889,26 +769,20 @@ class FileServerHandler(BaseHTTPRequestHandler):
             self._send_error(500, f"Error creating directory: {e}")
 
     def _handle_delete_post(self):
-        """Handle file/directory deletion via POST."""
-        if not self.config.features.delete:
-            self._send_error(403, "Deletion disabled")
+        if not self._check_feature('delete', 'Deletion'):
             return
 
-        # Get form data
         form = self._get_form_data()
         rel_path = form.get("p", "")
 
-        try:
-            target = PathSecurity.safe_join(self.config.get_root_path(), rel_path)
-        except ValueError as e:
-            self._send_error(400, f"Invalid path: {e}")
+        target = self._resolve_path(rel_path)
+        if target is None:
             return
 
         if not target.exists():
             self._send_error(404, "Path not found")
             return
 
-        # Delete
         try:
             if target.is_dir():
                 shutil.rmtree(target)
@@ -917,87 +791,75 @@ class FileServerHandler(BaseHTTPRequestHandler):
 
             logger.info(f"[{self.request_id}] Deleted: {rel_path}")
 
-            # Redirect to parent
             parent = str(target.parent.relative_to(self.config.get_root_path()))
             self._send_redirect(f"/?p={quote(parent)}")
         except (OSError, PermissionError) as e:
             self._send_error(500, f"Error deleting: {e}")
 
     def _handle_move(self):
-        """Handle file/directory move request."""
-        if not self.config.features.move:
-            self._send_error(403, "Move disabled")
+        if not self._check_feature('move', 'Move'):
             return
 
-        # Get form data
         form = self._get_form_data()
         source = form.get("source", "")
         destination = form.get("destination", "")
 
-        try:
-            source_path = PathSecurity.safe_join(self.config.get_root_path(), source)
-            dest_path = PathSecurity.safe_join(self.config.get_root_path(), destination)
-        except ValueError as e:
-            self._send_error(400, f"Invalid path: {e}")
+        source_path = self._resolve_path(source)
+        if source_path is None:
+            return
+
+        dest_path = self._resolve_path(destination)
+        if dest_path is None:
             return
 
         if not source_path.exists():
             self._send_error(404, "Source not found")
             return
 
-        # Move
         try:
             dest_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(source_path), str(dest_path))
 
             logger.info(f"[{self.request_id}] Moved: {source} -> {destination}")
 
-            # Redirect
             parent = str(dest_path.parent.relative_to(self.config.get_root_path()))
             self._send_redirect(f"/?p={quote(parent)}")
         except (OSError, PermissionError) as e:
             self._send_error(500, f"Error moving: {e}")
 
     def _handle_copy(self):
-        """Handle file/directory copy request."""
-        if not self.config.features.copy:
-            self._send_error(403, "Copy disabled")
+        if not self._check_feature('copy', 'Copy'):
             return
 
-        # Get form data
         form = self._get_form_data()
         source = form.get("source", "")
         destination = form.get("destination", "")
 
-        try:
-            source_path = PathSecurity.safe_join(self.config.get_root_path(), source)
-            dest_path = PathSecurity.safe_join(self.config.get_root_path(), destination)
-        except ValueError as e:
-            self._send_error(400, f"Invalid path: {e}")
+        source_path = self._resolve_path(source)
+        if source_path is None:
+            return
+
+        dest_path = self._resolve_path(destination)
+        if dest_path is None:
             return
 
         if not source_path.exists():
             self._send_error(404, "Source not found")
             return
 
-        # Copy using storage (handles permission fallback)
         if not self.storage.copy(source_path, dest_path):
             self._send_error(500, "Error copying")
             return
 
         logger.info(f"[{self.request_id}] Copied: {source} -> {destination}")
 
-        # Redirect
         parent = str(dest_path.parent.relative_to(self.config.get_root_path()))
         self._send_redirect(f"/?p={quote(parent)}")
 
     def _handle_download_selected(self):
-        """Handle download of selected files/folders as ZIP."""
-        if not self.config.features.download_zip:
-            self._send_error(403, "Downloads disabled")
+        if not self._check_feature('download_zip', 'Downloads'):
             return
 
-        # Get form data (use buffered body from CSRF validation if available)
         if hasattr(self, '_buffered_body') and self._buffered_body:
             body = self._buffered_body.decode('utf-8')
         else:
@@ -1016,28 +878,21 @@ class FileServerHandler(BaseHTTPRequestHandler):
             self._send_error(400, "No files selected")
             return
 
-        # Build list of paths to zip
         paths = []
         for file_path in selected_files:
-            try:
-                target = PathSecurity.safe_join(self.config.get_root_path(), file_path)
-                if target.exists():
-                    paths.append(target)
-            except ValueError:
-                logger.warning(f"Skipping invalid path in download selection: {file_path}")
-                continue
+            target = self._resolve_path(file_path)
+            if target is not None and target.exists():
+                paths.append(target)
 
         if not paths:
             self._send_error(404, "No valid files found")
             return
 
-        # Create ZIP as temp file and stream it
         zip_path = self.storage.create_zip_file(paths)
         if not zip_path:
             self._send_error(500, "Error creating ZIP")
             return
 
-        # Determine filename
         if len(paths) == 1:
             filename = f"{paths[0].name}.zip"
         else:
@@ -1054,13 +909,6 @@ class FileServerHandler(BaseHTTPRequestHandler):
 
 
 def create_handler_class(config: Config):
-    """Create a handler class with configuration.
-
-    Shared security objects (RateLimiter, IPFilter, SecurityHeaders) are
-    created once at the class level so their state (e.g., rate limit buckets)
-    persists across requests.
-    """
-    # Create shared instances (persist across requests)
     rate_limiter = RateLimiter(
         requests_per_minute=config.security.rate_limit.requests_per_minute,
         burst=config.security.rate_limit.burst,
@@ -1073,7 +921,6 @@ def create_handler_class(config: Config):
 
     security_headers = SecurityHeaders()
 
-    # Generate CSRF secret (random, overridable via env var)
     csrf_secret_str = os.environ.get('FILESERVER_CSRF_SECRET')
     if csrf_secret_str:
         csrf_secret = bytes.fromhex(csrf_secret_str)
@@ -1081,7 +928,6 @@ def create_handler_class(config: Config):
         csrf_secret = os.urandom(32)
 
     class ConfiguredHandler(FileServerHandler):
-        # Class-level shared state
         _config = config
         _rate_limiter = rate_limiter
         _ip_filter = ip_filter

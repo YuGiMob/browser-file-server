@@ -20,7 +20,7 @@ from dataclasses import dataclass
 import mimetypes
 
 from .utils.format import format_size, format_time, format_permissions
-from .utils.mime import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, AUDIO_EXTENSIONS, ARCHIVE_EXTENSIONS
+from .utils.mime import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, AUDIO_EXTENSIONS, ARCHIVE_EXTENSIONS, TEXT_EXTENSIONS
 
 @dataclass
 class FileInfo:
@@ -53,22 +53,6 @@ class FileInfo:
         }
 
 
-TEXT_EXTENSIONS = {
-    ".sh", ".bash", ".zsh", ".fish", ".py", ".pyw", ".js", ".ts", ".mjs", ".cjs",
-    ".jsx", ".tsx", ".html", ".htm", ".css", ".scss", ".sass", ".less",
-    ".json", ".yaml", ".yml", ".xml", ".toml", ".ini", ".conf", ".cfg",
-    ".md", ".markdown", ".txt", ".log", ".csv", ".tsv", ".rtf",
-    ".go", ".rs", ".java", ".kt", ".scala", ".c", ".h", ".cpp", ".hpp", ".cc",
-    ".cs", ".vb", ".rb", ".php", ".pl", ".pm", ".lua", ".r", ".R", ".sql",
-    ".diff", ".patch", ".gitignore", ".gitattributes", ".editorconfig",
-    ".dockerfile", ".env", ".env.example", ".env.local",
-    ".vim", ".el", ".clj", ".ex", ".exs", ".erl", ".hs",
-    ".swift", ".dart", ".vue", ".svelte", ".astro",
-    ".makefile", ".cmake", ".gradle",
-    ".properties", ".toml", ".cfg", ".ini",
-    ".rst", ".asciidoc", ".textile",
-    ".org", ".tex", ".latex",
-}
 
 class Storage:
     """File storage operations."""
@@ -378,41 +362,27 @@ class Storage:
         except (PermissionError, OSError):
             pass
 
+    def _add_paths_to_zip(self, zf, paths):
+        for path in paths:
+            if path.is_dir():
+                self._add_dir_to_zip(zf, path, path.parent)
+            else:
+                arcname = path.relative_to(self.root)
+                zf.write(path, arcname)
     def create_zip(self, paths: List[Path]) -> Optional[bytes]:
-        """
-        Create a ZIP archive from multiple files/directories.
-
-        Args:
-            paths: List of paths to include
-
-        Returns:
-            ZIP file contents or None
-        """
         try:
             buffer = io.BytesIO()
             with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
-                for path in paths:
-                    if path.is_dir():
-                        self._add_dir_to_zip(zf, path, path.parent)
-                    else:
-                        arcname = path.relative_to(self.root)
-                        zf.write(path, arcname)
-
+                self._add_paths_to_zip(zf, paths)
             return buffer.getvalue()
         except (OSError, PermissionError):
             return None
 
     def create_zip_file(self, paths: List[Path]) -> Optional[Path]:
-        """Create a ZIP archive as a temp file (streaming-friendly)."""
         try:
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
             with zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED) as zf:
-                for path in paths:
-                    if path.is_dir():
-                        self._add_dir_to_zip(zf, path, path.parent)
-                    else:
-                        arcname = path.relative_to(self.root)
-                        zf.write(path, arcname)
+                self._add_paths_to_zip(zf, paths)
             return Path(tmp.name)
         except (OSError, PermissionError):
             return None

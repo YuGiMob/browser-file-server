@@ -43,40 +43,11 @@ def format_time(timestamp: float, fmt: str = "%Y-%m-%d %H:%M") -> str:
         return "Unknown"
 
 def format_permissions(mode: int) -> str:
-    """
-    Format file permissions as Unix-style string.
-
-    Args:
-        mode: File mode (from os.stat)
-
-    Returns:
-        Permissions string (e.g., "rwxr-xr-x")
-    """
-    perms = []
-
-    # File type
     import stat
-    if stat.S_ISDIR(mode):
-        perms.append('d')
-    elif stat.S_ISLNK(mode):
-        perms.append('l')
-    else:
-        perms.append('-')
-
-    # Owner permissions
-    perms.append('r' if mode & 0o400 else '-')
-    perms.append('w' if mode & 0o200 else '-')
-    perms.append('x' if mode & 0o100 else '-')
-
-    # Group permissions
-    perms.append('r' if mode & 0o040 else '-')
-    perms.append('w' if mode & 0o020 else '-')
-    perms.append('x' if mode & 0o010 else '-')
-
-    # Other permissions
-    perms.append('r' if mode & 0o004 else '-')
-    perms.append('w' if mode & 0o002 else '-')
-    perms.append('x' if mode & 0o001 else '-')
+    perms = ['d' if stat.S_ISDIR(mode) else 'l' if stat.S_ISLNK(mode) else '-']
+    for i, c in enumerate('rwxrwxrwx'):
+        perms.append(c if mode & (1 << (8 - i)) else '-')
+    return ''.join(perms)
 
     return ''.join(perms)
 

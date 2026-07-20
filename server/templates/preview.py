@@ -9,6 +9,7 @@ from ..utils.format import escape_html, format_size
 from ..utils.path import get_parent_path, build_path_breadcrumb
 from ..utils.mime import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, AUDIO_EXTENSIONS
 from .. import RAW
+from .base import _render_header
 def render_preview(
     file_path: str,
     file_name: str,
@@ -45,55 +46,44 @@ def render_preview(
     # Format file size
     size_str = format_size(file_size)
 
+    actions = f'''
+        <a href="{RAW}?p={encoded_path}" class="btn-icon" title="Download">⬇️</a>
+        {'<a href="/?p=' + encoded_path + '&edit=1" class="btn-icon" title="Edit">✏️</a>' if is_text else ''}
+    '''
+    breadcrumb = f'<a href="/">/</a>{build_path_breadcrumb(file_path)}'
+    header_html = _render_header(
+        back_url=f"/?p={quote(get_parent_path(file_path))}",
+        title=safe_file_name,
+        actions_html=actions,
+        breadcrumb_html=breadcrumb,
+    )
     html = f"""
-<div class="header">
-    <div class="header-content">
-        <div class="header-top">
-            <a href="/?p={quote(get_parent_path(file_path))}" class="btn-icon">←</a>
-            <span class="header-title">{safe_file_name}</span>
-            <div class="header-actions">
-                <a href="{RAW}?p={encoded_path}" class="btn-icon" title="Download">⬇️</a>
-                {'<a href="/?p=' + encoded_path + '&edit=1" class="btn-icon" title="Edit">✏️</a>' if is_text else ''}
-                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌓</button>
-            </div>
-        </div>
-        <div class="breadcrumb">
-            <a href="/">/</a>
-            {build_path_breadcrumb(file_path)}
-        </div>
-    </div>
-</div>
-
-<div class="container">
+    {header_html}
+    <div class="container">
     <div class="preview-container">
         <div class="preview-header">
             <div>
                 <div class="preview-title">{safe_file_name}</div>
-                <div class="preview-subtitle">{escape_html(mime_type or 'Unknown type')} · {size_str}</div>
+                <div class="preview-subtitle">{escape_html(mime_type or 'Unknown type')} \u00b7 {size_str}</div>
             </div>
         </div>
-        
         {preview_content}
     </div>
-</div>
+    </div>
 
-<script>
-// Keyboard shortcuts
-document.addEventListener('keydown', function(e) {{
-    // Escape to go back
-    if (e.key === 'Escape') {{
-        window.history.back();
-    }}
-    
-    // E to edit
-    if (e.key === 'e' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT') {{
-        const editLink = document.querySelector('a[href*="edit=1"]');
-        if (editLink) {{
-            window.location.href = editLink.href;
+    <script>
+    document.addEventListener('keydown', function(e) {{
+        if (e.key === 'Escape') {{
+            window.history.back();
         }}
-    }}
-}});
-</script>
+        if (e.key === 'e' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT') {{
+            const editLink = document.querySelector('a[href*="edit=1"]');
+            if (editLink) {{
+                window.location.href = editLink.href;
+            }}
+        }}
+    }});
+    </script>
 """
 
     return html

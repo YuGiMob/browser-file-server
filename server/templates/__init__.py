@@ -9,7 +9,7 @@ Provides:
 - Error pages
 """
 
-from .base import get_base_html, get_head, get_footer
+from .base import get_base_html, get_head, get_footer, _render_header
 from .listing import render_listing
 from .editor import render_editor
 from .preview import render_preview
@@ -17,6 +17,10 @@ from .error import render_error
 
 __all__ = [
     'get_base_html',
+    'get_head',
+    'get_footer',
+    '_render_header',
+    'render_listing',
     'get_head',
     'get_footer',
     'render_listing',
