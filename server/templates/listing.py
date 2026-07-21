@@ -208,7 +208,7 @@ def render_listing(
     }}
 
     function toggleHidden(show) {{
-        const url = new URL(window.location);
+        const url = new URL(window.location.href);
         url.searchParams.set('hidden', show ? '1' : '0');
         window.location.href = url.toString();
     }}
@@ -249,7 +249,7 @@ def render_listing(
                 input.dispatchEvent(new Event('change'));
             }}
         }});
-    }})
+    }}
 
     document.addEventListener('keydown', function(e) {{
         if (e.key === 'e' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {{

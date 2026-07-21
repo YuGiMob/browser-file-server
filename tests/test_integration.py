@@ -520,6 +520,34 @@ class TestTemplateStructure(unittest.TestCase):
             f"Found {total_auto - auto_in_media} [data-theme=\"auto\"] outside @media blocks"
         )
 
+    def test_listing_javascript_balanced_braces(self):
+        file_info = FileInfo(
+            name='test.txt', path='test.txt', is_dir=False, size=100,
+            modified=1234567890.0, modified_str='2024-01-01 12:00',
+            mime_type='text/plain', is_text=True, is_hidden=False,
+            permissions='-rw-r--r--',
+        )
+        html = render_listing([file_info], '', csrf_token='test')
+        script_start = html.find('<script>')
+        while script_start != -1:
+            script_end = html.find('</script>', script_start)
+            if script_end == -1:
+                break
+            js = html[script_start + len('<script>'):script_end]
+            opens_curly = js.count('{')
+            closes_curly = js.count('}')
+            self.assertEqual(
+                opens_curly, closes_curly,
+                f'JavaScript has {opens_curly} opening curly braces but {closes_curly} closing curly braces'
+            )
+            opens_paren = js.count('(')
+            closes_paren = js.count(')')
+            self.assertEqual(
+                opens_paren, closes_paren,
+                f'JavaScript has {opens_paren} opening parentheses but {closes_paren} closing parentheses'
+            )
+            script_start = html.find('<script>', script_end)
+
 
 class TestRouteCoverage(unittest.TestCase):
     def _get_handler_methods(self):
