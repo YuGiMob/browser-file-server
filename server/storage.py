@@ -286,28 +286,25 @@ class Storage:
             return False
 
     def copy(self, source: Path, destination: Path) -> bool:
-        """
-        Copy a file or directory.
-
-        Args:
-            source: Source path
-            destination: Destination path
-
-        Returns:
-            True if successful
-        """
         try:
             destination.parent.mkdir(parents=True, exist_ok=True)
             if source.is_dir():
-                shutil.copytree(str(source), str(destination))
+                destination.mkdir(exist_ok=True)
+                for item in source.iterdir():
+                    item_dest = destination / item.name
+                    if item.is_dir():
+                        if not self.copy(item, item_dest):
+                            return False
+                    else:
+                        try:
+                            shutil.copy2(str(item), str(item_dest))
+                        except PermissionError:
+                            item_dest.write_bytes(item.read_bytes())
             else:
-                # Try shutil.copy2 first, fall back to manual copy
                 try:
                     shutil.copy2(str(source), str(destination))
                 except PermissionError:
-                    # Fallback: read and write manually
-                    content = source.read_bytes()
-                    destination.write_bytes(content)
+                    destination.write_bytes(source.read_bytes())
             return True
         except (OSError, PermissionError):
             return False

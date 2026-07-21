@@ -181,8 +181,11 @@ def get_extension(filename: str) -> str:
     """
     # Handle special filenames
     basename = filename.rsplit('/', 1)[-1].rsplit('\\', 1)[-1]
-    if basename.lower() in ('makefile', 'dockerfile', 'cmakelists.txt', '.gitignore', '.env'):
-        return '.' + basename.lower()
+    lower = basename.lower()
+    if lower in ('makefile', 'dockerfile', 'cmakelists.txt', '.gitignore', '.env'):
+        if lower.startswith('.'):
+            return lower
+        return '.' + lower
 
     # Get extension
     if '.' in basename:

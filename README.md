@@ -165,6 +165,7 @@ Options:
 | `Ctrl+S` | Save file (in editor) |
 | `/` | Focus search |
 | `Escape` | Blur input / Go back |
+| `Backspace` | Go to parent directory (when not in input) |
 | `E` | Edit file (in preview) |
 
 ## API Endpoints

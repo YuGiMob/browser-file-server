@@ -98,9 +98,6 @@ ui:
   
   # Show file preview (default: true)
   show_preview: true
-  
-  # Show thumbnails for images (default: true)
-  show_thumbnails: true
 
 logging:
   # Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL (default: INFO)

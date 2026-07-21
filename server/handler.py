@@ -69,7 +69,10 @@ class FileServerHandler(BaseHTTPRequestHandler):
     def _generate_csrf_token(self) -> str:
         secret = self._get_csrf_secret()
         window = str(int(time.time()) // 3600)
-        client_ip = self.client_address[0] if hasattr(self, 'client_address') else '0.0.0.0'
+        if hasattr(self, 'headers'):
+            client_ip = get_client_ip(self)
+        else:
+            client_ip = self.client_address[0] if hasattr(self, 'client_address') else '0.0.0.0'
         return hmac.new(secret, f"{client_ip}:{window}".encode(), hashlib.sha256).hexdigest()[:32]
 
     def _validate_csrf_token(self, token: str) -> bool:
@@ -302,9 +305,10 @@ class FileServerHandler(BaseHTTPRequestHandler):
         if not content_type.startswith('multipart/form-data'):
             return {}, {}
 
-        boundary = content_type.split('boundary=', 1)[1].strip().strip('"')
-        if not boundary:
+        parts = content_type.split('boundary=', 1)
+        if len(parts) < 2:
             return {}, {}
+        boundary = parts[1].strip().strip('"')
 
         if not hasattr(self, '_buffered_body') or not self._buffered_body:
             return {}, {}
@@ -328,12 +332,18 @@ class FileServerHandler(BaseHTTPRequestHandler):
             else:
                 idx = body.find(b'\r\n' + boundary_bytes, pos)
                 if idx == -1:
-                    break
-                idx += 2
+                    idx = body.find(b'\n' + boundary_bytes, pos)
+                    if idx == -1:
+                        break
+                    idx += 1
+                else:
+                    idx += 2
             if body[idx:].startswith(boundary_end):
                 break
             part_start = idx + len(boundary_bytes)
             next_idx = body.find(b'\r\n' + boundary_bytes, part_start)
+            if next_idx == -1:
+                next_idx = body.find(b'\n' + boundary_bytes, part_start)
             if next_idx == -1:
                 part_data = body[part_start:]
                 parts.append(part_data)
@@ -344,23 +354,27 @@ class FileServerHandler(BaseHTTPRequestHandler):
                 pos = next_idx
 
         for part in parts:
-            part = part.strip(b'\r\n')
+            part = part.strip(b'\r\n').strip(b'\n')
             if not part:
                 continue
 
             header_end = part.find(b'\r\n\r\n')
+            header_end_offset = 4
+            if header_end == -1:
+                header_end = part.find(b'\n\n')
+                header_end_offset = 2
             if header_end == -1:
                 continue
 
             header_data = part[:header_end]
-            file_data = part[header_end + 4:]
+            file_data = part[header_end + header_end_offset:]
 
             headers = {}
-            for line in header_data.decode('utf-8', errors='replace').split('\r\n'):
+            header_text = header_data.decode('utf-8', errors='replace').replace('\r\n', '\n')
+            for line in header_text.split('\n'):
                 if ':' in line:
                     key, value = line.split(':', 1)
                     headers[key.strip().lower()] = value.strip()
-
             disposition = headers.get('content-disposition', '')
             if not disposition:
                 continue
@@ -479,7 +493,11 @@ class FileServerHandler(BaseHTTPRequestHandler):
         if content_type.startswith('multipart/form-data'):
             max_size = self.config.server.max_upload_size
 
-        if content_length > 0 and content_length <= max_size:
+        if content_length > max_size:
+            self._send_error(413, f"Request too large: {content_length} bytes (max {max_size})")
+            return False
+
+        if content_length > 0:
             raw_body = self.rfile.read(content_length)
             self._buffered_body = raw_body
 
@@ -532,6 +550,9 @@ class FileServerHandler(BaseHTTPRequestHandler):
             return
 
         if target.is_file():
+            if not self._check_feature('preview', 'Preview'):
+                self._send_redirect(f"{RAW}?p={quote(rel_path)}")
+                return
             self._handle_preview(params)
             return
 

@@ -198,5 +198,106 @@ class TestFileInfo(unittest.TestCase):
         self.assertTrue(d['is_text'])
 
 
+class TestStorageExtended(BaseTest):
+    def setUp(self):
+        super().setUp()
+        self.storage = Storage(self.temp_dir)
+
+    def test_get_file_info_nonexistent(self):
+        info = self.storage.get_file_info(self.temp_dir / 'nonexistent.txt')
+        self.assertIsNone(info)
+
+    def test_get_file_info_directory(self):
+        (self.temp_dir / 'subdir').mkdir()
+        info = self.storage.get_file_info(self.temp_dir / 'subdir')
+        self.assertIsNotNone(info)
+        self.assertTrue(info.is_dir)
+        self.assertEqual(info.size, 0)
+
+    def test_list_directory_sort_by_size(self):
+        (self.temp_dir / 'small.txt').write_text('a')
+        (self.temp_dir / 'large.txt').write_text('b' * 1000)
+        (self.temp_dir / 'subdir').mkdir()
+        files = self.storage.list_directory(self.temp_dir, sort_by='size')
+        self.assertEqual(len(files), 3)
+        # Directories first, then by size ascending
+        self.assertTrue(files[0].is_dir)
+
+    def test_list_directory_sort_by_modified(self):
+        (self.temp_dir / 'a.txt').write_text('a')
+        import time
+        time.sleep(1.1)
+        (self.temp_dir / 'b.txt').write_text('b')
+        files = self.storage.list_directory(self.temp_dir, sort_by='modified')
+        self.assertEqual(len(files), 2)
+        # Files first (oldest first), then directories
+        self.assertEqual(files[0].name, 'a.txt')
+
+    def test_search_no_results(self):
+        (self.temp_dir / 'test.txt').write_text('content')
+        results = self.storage.search('nonexistent')
+        self.assertEqual(len(results), 0)
+
+    def test_search_case_insensitive(self):
+        (self.temp_dir / 'TestFile.txt').write_text('content')
+        results = self.storage.search('testfile')
+        self.assertEqual(len(results), 1)
+
+    def test_search_in_subdirectory(self):
+        subdir = self.temp_dir / 'subdir'
+        subdir.mkdir()
+        (subdir / 'target.txt').write_text('content')
+        results = self.storage.search('target', subdir)
+        self.assertEqual(len(results), 1)
+
+    def test_search_max_results(self):
+        for i in range(10):
+            (self.temp_dir / f'file{i}.txt').write_text('content')
+        results = self.storage.search('file', max_results=3)
+        self.assertEqual(len(results), 3)
+
+    def test_is_text_file_empty(self):
+        empty = self.temp_dir / 'empty.txt'
+        empty.touch()
+        self.assertTrue(self.storage.is_text_file(empty))
+
+    def test_is_text_file_special_names(self):
+        makefile = self.temp_dir / 'Makefile'
+        makefile.write_text('all:')
+        self.assertTrue(self.storage.is_text_file(makefile))
+
+        dockerfile = self.temp_dir / 'Dockerfile'
+        dockerfile.write_text('FROM alpine')
+        self.assertTrue(self.storage.is_text_file(dockerfile))
+
+    def test_create_zip_empty_list(self):
+        result = self.storage.create_zip([])
+        self.assertIsNotNone(result)
+
+    def test_create_zip_file(self):
+        (self.temp_dir / 'test.txt').write_text('content')
+        result = self.storage.create_zip_file([self.temp_dir / 'test.txt'])
+        self.assertIsNotNone(result)
+        self.assertTrue(result.exists())
+        result.unlink(missing_ok=True)
+
+    def test_copy_directory(self):
+        subdir = self.temp_dir / 'subdir'
+        subdir.mkdir()
+        (subdir / 'file.txt').write_text('content')
+        dest = self.temp_dir / 'copy'
+        result = self.storage.copy(subdir, dest)
+        self.assertTrue(result)
+        self.assertTrue(dest.exists())
+        self.assertTrue((dest / 'file.txt').exists())
+
+    def test_get_disk_usage(self):
+        usage = self.storage.get_disk_usage()
+        self.assertIn('total', usage)
+        self.assertIn('used', usage)
+        self.assertIn('free', usage)
+        self.assertGreater(usage['total'], 0)
+
+
 if __name__ == "__main__":
     unittest.main()

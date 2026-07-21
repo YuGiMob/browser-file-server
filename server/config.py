@@ -61,7 +61,6 @@ DEFAULTS = {
         "show_hidden": False,
         "default_sort": "name",  # name, size, modified
         "show_preview": True,
-        "show_thumbnails": True,
     },
     "logging": {
         "level": "INFO",
@@ -132,7 +131,6 @@ class UIConfig:
     show_hidden: bool = False
     default_sort: str = "name"
     show_preview: bool = True
-    show_thumbnails: bool = True
 
 
 @dataclass

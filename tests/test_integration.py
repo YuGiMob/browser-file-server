@@ -258,6 +258,127 @@ class TestHTTPIntegration(BaseServerTest):
         self.assertTrue((self.temp_dir / 'copied.txt').exists())
         self.assertEqual((self.temp_dir / 'copied.txt').read_text(), 'copy me')
 
+    def test_delete_directory(self):
+        subdir = self.temp_dir / 'subdir_to_delete'
+        subdir.mkdir()
+        (subdir / 'file.txt').write_text('content')
+        self.assertTrue(subdir.exists())
+
+        _, status = self._post('/delete', {'p': 'subdir_to_delete'})
+        self.assertIn(status, [200, 303])
+        self.assertFalse(subdir.exists())
+
+    def test_raw_range(self):
+        body, status = self._get('/raw?p=test.txt')
+        self.assertEqual(status, 200)
+        self.assertEqual(body, 'Hello World')
+
+        import urllib.request
+        url = f'http://127.0.0.1:{self.port}/raw?p=test.txt'
+        req = urllib.request.Request(url)
+        req.add_header('Range', 'bytes=0-4')
+        try:
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                self.assertEqual(resp.status, 206)
+                self.assertEqual(resp.read().decode(), 'Hello')
+        except urllib.error.HTTPError as e:
+            self.fail(f'Range request failed: {e.code}')
+
+    def test_editor_non_text(self):
+        (self.temp_dir / 'test.bin').write_bytes(b'\x00\x01\x02')
+        body, status = self._get('/?p=test.bin&edit=1')
+        self.assertEqual(status, 400)
+        self.assertIn('Not a text file', body)
+
+    def test_hidden_files_param(self):
+        (self.temp_dir / '.hidden_file').write_text('secret')
+        body, status = self._get('/?hidden=1')
+        self.assertEqual(status, 200)
+        self.assertIn('.hidden_file', body)
+
+        body, status = self._get('/?hidden=0')
+        self.assertEqual(status, 200)
+        self.assertNotIn('.hidden_file', body)
+
+    def test_sort_by_size(self):
+        (self.temp_dir / 'small.txt').write_text('a')
+        (self.temp_dir / 'large.txt').write_text('b' * 1000)
+        body, status = self._get('/?sort=size')
+        self.assertEqual(status, 200)
+        # Both files should appear
+        self.assertIn('small.txt', body)
+        self.assertIn('large.txt', body)
+
+    def test_sort_by_modified(self):
+        body, status = self._get('/?sort=modified')
+        self.assertEqual(status, 200)
+        self.assertIn('test.txt', body)
+
+    def test_save_new_file_subdirectory(self):
+        subdir = self.temp_dir / 'newsub'
+        subdir.mkdir()
+        _, status = self._post('/save', {'p': 'newsub/created.txt', 'content': 'created'})
+        self.assertIn(status, [200, 303])
+        self.assertTrue((self.temp_dir / 'newsub' / 'created.txt').exists())
+        self.assertEqual((self.temp_dir / 'newsub' / 'created.txt').read_text(), 'created')
+
+    def test_mkdir_invalid_name(self):
+        body, status = self._post('/mkdir', {'p': '', 'name': '../escape'})
+        self.assertEqual(status, 400)
+
+        body, status = self._post('/mkdir', {'p': '', 'name': ''})
+        self.assertEqual(status, 400)
+
+    def test_delete_nonexistent(self):
+        body, status = self._post('/delete', {'p': 'nonexistent.txt'})
+        self.assertEqual(status, 404)
+
+    def test_move_nonexistent_source(self):
+        body, status = self._post('/move', {'source': 'nonexistent.txt', 'destination': 'dest.txt'})
+        self.assertEqual(status, 404)
+
+    def test_copy_nonexistent_source(self):
+        body, status = self._post('/copy', {'source': 'nonexistent.txt', 'destination': 'dest.txt'})
+        self.assertEqual(status, 404)
+
+    def test_raw_if_modified_since(self):
+        import urllib.request
+        url = f'http://127.0.0.1:{self.port}/raw?p=test.txt'
+        req = urllib.request.Request(url)
+        req.add_header('If-Modified-Since', 'Thu, 01 Jan 2099 00:00:00 GMT')
+        try:
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                self.assertEqual(resp.status, 304)
+        except urllib.error.HTTPError as e:
+            self.assertEqual(e.code, 304)
+
+    def test_search_no_results(self):
+        body, status = self._get('/search?q=zzz_nonexistent_zzz')
+        self.assertEqual(status, 200)
+        self.assertIn('0 results', body)
+
+    def test_api_files_nonexistent(self):
+        body, status = self._get('/api/files?p=nonexistent')
+        self.assertEqual(status, 400)
+
+    def test_editor_nonexistent_file(self):
+        body, status = self._get('/?p=nonexistent.txt&edit=1')
+        self.assertEqual(status, 404)
+
+    def test_editor_directory(self):
+        body, status = self._get('/?p=subdir&edit=1')
+        self.assertEqual(status, 400)
+        self.assertIn('Not a file', body)
+
+    def test_download_nonexistent(self):
+        body, status = self._get('/download?p=nonexistent')
+        self.assertEqual(status, 404)
+
+    def test_raw_directory(self):
+        body, status = self._get('/raw?p=subdir')
+        self.assertEqual(status, 400)
+        self.assertIn('Not a file', body)
+
 
 class TestBatchOperations(BaseServerTest):
     def setUp(self):

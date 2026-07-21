@@ -1124,23 +1124,13 @@ def _render_header(
             <span class="header-title">{title}</span>
             <div class="header-actions">
                 {actions_html}
-                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌓</button>
+                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">\U0001f313</button>
             </div>
         </div>
         <div class="breadcrumb">{breadcrumb_html}</div>
     </div>
     {extra_html}
 </div>'''
-    """
-    Get HTML head section.
-
-    Args:
-        title: Page title
-        theme: Theme (dark, light, auto)
-
-    Returns:
-        HTML head string
-    """
 
 
 def get_footer(version: str = __version__) -> str:
@@ -1229,6 +1219,15 @@ document.addEventListener('keydown', function(e) {{
     // Escape to blur
     if (e.key === 'Escape') {{
         document.activeElement.blur();
+    }}
+
+    // Backspace to go to parent directory
+    if (e.key === 'Backspace' && !e.ctrlKey && !e.metaKey && !e.altKey && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {{
+        const backLink = document.querySelector('.btn-icon');
+        if (backLink && backLink.getAttribute('href') && backLink.getAttribute('href') !== '#') {{
+            e.preventDefault();
+            window.location.href = backLink.getAttribute('href');
+        }}
     }}
 }});
 

@@ -166,5 +166,148 @@ class TestMultipartParser(unittest.TestCase):
     def test_extract_csrf_from_multipart_empty_body(self):
         result = FileServerHandler._extract_csrf_from_multipart(None, b'')
         self.assertEqual(result, '')
+
+
+class TestGetMultipartData(unittest.TestCase):
+    def test_no_multipart_content_type(self):
+        from unittest.mock import MagicMock
+        handler = MagicMock()
+        handler.headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+        handler._buffered_body = b'foo=bar'
+        handler.config.server.max_upload_size = 104857600
+        fields, files = FileServerHandler._get_multipart_data(handler)
+        self.assertEqual(fields, {})
+        self.assertEqual(files, {})
+
+    def test_no_boundary(self):
+        from unittest.mock import MagicMock
+        handler = MagicMock()
+        handler.headers = {'Content-Type': 'multipart/form-data'}
+        handler._buffered_body = b'--boundary\r\n'
+        handler.config.server.max_upload_size = 104857600
+        fields, files = FileServerHandler._get_multipart_data(handler)
+        self.assertEqual(fields, {})
+        self.assertEqual(files, {})
+
+    def test_no_buffered_body(self):
+        from unittest.mock import MagicMock
+        handler = MagicMock()
+        handler.headers = {'Content-Type': 'multipart/form-data; boundary=abc'}
+        handler._buffered_body = None
+        handler.config.server.max_upload_size = 104857600
+        fields, files = FileServerHandler._get_multipart_data(handler)
+        self.assertEqual(fields, {})
+        self.assertEqual(files, {})
+
+    def test_upload_too_large(self):
+        from unittest.mock import MagicMock
+        handler = MagicMock()
+        handler.headers = {'Content-Type': 'multipart/form-data; boundary=abc'}
+        handler._buffered_body = b'x' * 100
+        handler.config.server.max_upload_size = 50
+        with self.assertRaises(ValueError):
+            FileServerHandler._get_multipart_data(handler)
+
+    def test_parse_simple_multipart(self):
+        from unittest.mock import MagicMock
+        handler = MagicMock()
+        handler.headers = {'Content-Type': 'multipart/form-data; boundary=BOUNDARY'}
+        body = (
+            b'--BOUNDARY\r\n'
+            b'Content-Disposition: form-data; name="field1"\r\n'
+            b'\r\n'
+            b'value1\r\n'
+            b'--BOUNDARY\r\n'
+            b'Content-Disposition: form-data; name="file1"; filename="test.txt"\r\n'
+            b'Content-Type: text/plain\r\n'
+            b'\r\n'
+            b'file content\r\n'
+            b'--BOUNDARY--\r\n'
+        )
+        handler._buffered_body = body
+        handler.config.server.max_upload_size = 104857600
+        fields, files = FileServerHandler._get_multipart_data(handler)
+        self.assertIn('field1', fields)
+        self.assertEqual(fields['field1'], 'value1')
+        self.assertIn('file1', files)
+        self.assertEqual(files['file1'][0], 'test.txt')
+        self.assertEqual(files['file1'][1], b'file content')
+
+    def test_parse_multipart_with_newline_boundaries(self):
+        from unittest.mock import MagicMock
+        handler = MagicMock()
+        handler.headers = {'Content-Type': 'multipart/form-data; boundary=B'}
+        body = (
+            b'--B\n'
+            b'Content-Disposition: form-data; name="f"\n'
+            b'\n'
+            b'v\n'
+            b'--B--\n'
+        )
+        handler._buffered_body = body
+        handler.config.server.max_upload_size = 104857600
+        fields, files = FileServerHandler._get_multipart_data(handler)
+        self.assertIn('f', fields)
+        self.assertEqual(fields['f'], 'v')
+
+
+class TestCheckFeature(unittest.TestCase):
+    def test_feature_enabled(self):
+        from unittest.mock import MagicMock
+        handler = MagicMock()
+        handler.config.features.edit = True
+        result = FileServerHandler._check_feature(handler, 'edit', 'Editing')
+        self.assertTrue(result)
+
+    def test_feature_disabled(self):
+        from unittest.mock import MagicMock
+        handler = MagicMock()
+        handler.config.features.edit = False
+        result = FileServerHandler._check_feature(handler, 'edit', 'Editing')
+        self.assertFalse(result)
+
+
+class TestResolvePath(BaseTest):
+    def test_resolve_valid(self):
+        from unittest.mock import MagicMock
+        handler = MagicMock()
+        handler.config.get_root_path.return_value = self.temp_dir
+        (self.temp_dir / 'test.txt').write_text('content')
+        result = FileServerHandler._resolve_path(handler, 'test.txt')
+        self.assertEqual(result, self.temp_dir / 'test.txt')
+
+    def test_resolve_traversal(self):
+        from unittest.mock import MagicMock
+        handler = MagicMock()
+        handler.config.get_root_path.return_value = self.temp_dir
+        result = FileServerHandler._resolve_path(handler, '../etc/passwd')
+        self.assertIsNone(result)
+
+
+class TestGetFormData(unittest.TestCase):
+    def test_urlencoded_form(self):
+        from unittest.mock import MagicMock
+        handler = MagicMock()
+        handler.headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+        handler._buffered_body = b'key1=value1&key2=value2'
+        result = FileServerHandler._get_form_data(handler)
+        self.assertEqual(result['key1'], 'value1')
+        self.assertEqual(result['key2'], 'value2')
+
+    def test_no_body(self):
+        from unittest.mock import MagicMock
+        handler = MagicMock()
+        handler.headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+        handler._buffered_body = None
+        result = FileServerHandler._get_form_data(handler)
+        self.assertEqual(result, {})
+
+    def test_wrong_content_type(self):
+        from unittest.mock import MagicMock
+        handler = MagicMock()
+        handler.headers = {'Content-Type': 'multipart/form-data'}
+        handler._buffered_body = b'foo=bar'
+        result = FileServerHandler._get_form_data(handler)
+        self.assertEqual(result, {})
 if __name__ == "__main__":
     unittest.main()

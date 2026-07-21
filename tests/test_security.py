@@ -43,6 +43,28 @@ class TestPathSecurity(BaseTest):
         self.assertTrue(PathSecurity.is_safe_path("subdir/test.txt"))
         self.assertFalse(PathSecurity.is_safe_path("../etc/passwd"))
 
+    def test_safe_join_dangerous_chars(self):
+        with self.assertRaises(ValueError):
+            PathSecurity.safe_join(self.temp_dir, "test\x00.txt")
+
+    def test_safe_join_reserved_name(self):
+        with self.assertRaises(ValueError):
+            PathSecurity.safe_join(self.temp_dir, "CON")
+        with self.assertRaises(ValueError):
+            PathSecurity.safe_join(self.temp_dir, "COM1.txt")
+
+    def test_safe_join_empty_path(self):
+        result = PathSecurity.safe_join(self.temp_dir, "")
+        self.assertEqual(result, self.temp_dir)
+
+    def test_sanitize_filename_dangerous(self):
+        result = PathSecurity.sanitize_filename("test\x00.txt")
+        self.assertEqual(result, "test.txt")
+        result = PathSecurity.sanitize_filename("  .  ")
+        self.assertEqual(result, "unnamed")
+        result = PathSecurity.sanitize_filename("a" * 300 + ".txt")
+        self.assertEqual(len(result), 255)  # max 255 chars total
+        self.assertTrue(result.endswith('.txt'))
 
 class TestRateLimiter(unittest.TestCase):
     def test_allow_within_limit(self):
@@ -214,6 +236,82 @@ class TestCSRFProtection(unittest.TestCase):
         validator = self._make_handler(client_addr=('10.0.0.2', 12345))
         result = FileServerHandler._validate_csrf_token(validator, token)
         self.assertFalse(result)
+
+
+class TestRateLimiterExtended(unittest.TestCase):
+    def test_token_refill(self):
+        limiter = RateLimiter(requests_per_minute=60, burst=5)
+        for _ in range(5):
+            allowed, _ = limiter.is_allowed('10.0.0.1')
+            self.assertTrue(allowed)
+        allowed, _ = limiter.is_allowed('10.0.0.1')
+        self.assertFalse(allowed)
+        # Wait for token refill
+        import time
+        time.sleep(1.1)
+        allowed, _ = limiter.is_allowed('10.0.0.1')
+        self.assertTrue(allowed)
+
+    def test_cleanup_no_entries(self):
+        limiter = RateLimiter(requests_per_minute=60, burst=10)
+        limiter.cleanup()
+        self.assertEqual(len(limiter.buckets), 0)
+
+
+class TestIPFilterExtended(unittest.TestCase):
+    def test_invalid_ip(self):
+        ip_filter = IPFilter()
+        self.assertFalse(ip_filter.is_allowed('not-an-ip'))
+
+    def test_blocked_network(self):
+        ip_filter = IPFilter(blocked_ips=['10.0.0.0/8'])
+        self.assertFalse(ip_filter.is_allowed('10.0.0.1'))
+        self.assertTrue(ip_filter.is_allowed('192.168.1.1'))
+
+    def test_allowed_network(self):
+        ip_filter = IPFilter(allowed_ips=['192.168.0.0/16'])
+        self.assertTrue(ip_filter.is_allowed('192.168.1.1'))
+        self.assertFalse(ip_filter.is_allowed('10.0.0.1'))
+
+
+class TestSecurityHeadersExtended(unittest.TestCase):
+    def test_all_headers_present(self):
+        headers = SecurityHeaders.get_headers()
+        self.assertIn('X-Content-Type-Options', headers)
+        self.assertIn('X-Frame-Options', headers)
+        self.assertIn('X-XSS-Protection', headers)
+        self.assertIn('Referrer-Policy', headers)
+        self.assertIn('Permissions-Policy', headers)
+        self.assertIn('Content-Security-Policy', headers)
+
+    def test_csp_values(self):
+        headers = SecurityHeaders.get_headers()
+        csp = headers['Content-Security-Policy']
+        self.assertIn("default-src 'self'", csp)
+        self.assertIn("script-src 'self'", csp)
+        self.assertIn("style-src 'self'", csp)
+        self.assertIn("img-src 'self'", csp)
+
+
+class TestGetClientIpExtended(unittest.TestCase):
+    def _make_handler(self, headers=None, client_addr=('127.0.0.1', 12345)):
+        from unittest.mock import MagicMock
+        handler = MagicMock()
+        handler.headers = headers or {}
+        handler.client_address = client_addr
+        return handler
+
+    def test_empty_headers(self):
+        handler = self._make_handler(headers={})
+        self.assertEqual(get_client_ip(handler), '127.0.0.1')
+
+    def test_invalid_real_ip(self):
+        handler = self._make_handler(headers={'X-Real-IP': 'not-an-ip'})
+        self.assertEqual(get_client_ip(handler), '127.0.0.1')
+
+    def test_ipv6_client(self):
+        handler = self._make_handler(client_addr=('::1', 12345))
+        self.assertEqual(get_client_ip(handler), '::1')
 
 
 if __name__ == "__main__":
