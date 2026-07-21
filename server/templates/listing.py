@@ -82,6 +82,10 @@ def render_listing(
             <a href="/?p={encoded_path}&sort=modified" class="segmented-btn {'active' if sort_by == 'modified' else ''}">Date</a>
         </div>
         <div class="toolbar-spacer"></div>
+        <label class="checkbox-wrapper" onclick="toggleSelectAll()" id="select-all-wrapper">
+            <div class="checkbox-indicator" id="select-all-checkbox"></div>
+            <span class="checkbox-label">All</span>
+        </label>
         <label class="checkbox-wrapper {'checked' if show_hidden else ''}" onclick="toggleHidden({str(not show_hidden).lower()})">
             <div class="checkbox-indicator"></div>
             <span class="checkbox-label">Hidden</span>
@@ -101,8 +105,8 @@ def render_listing(
     {upload_html}
     {empty_html}
     {file_list_html}
-    {_build_pagination(page, total_pages, current_path, search_query)}
-    </div>
+    {_build_pagination(page, total_pages, current_path, search_query, show_hidden)}
+    <div class="file-count" style="padding: 8px 16px; font-size: 13px; color: var(--text-muted);">{len(files)} items</div>
 
     <div id="batch-bar" class="batch-bar">
         <span id="batch-count" class="batch-info">0 selected</span>
@@ -125,8 +129,11 @@ def render_listing(
         document.querySelectorAll('.file-item').forEach(item => {{
             item.classList.remove('selected');
         }});
+        const selectAllCb = document.getElementById('select-all-checkbox');
+        if (selectAllCb) selectAllCb.classList.remove('checked');
+        const selectAllW = document.getElementById('select-all-wrapper');
+        if (selectAllW) selectAllW.classList.remove('checked');
     }}
-
     function toggleFileSelect(path, element) {{
         if (selectedFiles.has(path)) {{
             selectedFiles.delete(path);
@@ -144,6 +151,7 @@ def render_listing(
         const batchBar = document.getElementById('batch-bar');
         const batchCount = document.getElementById('batch-count');
         const footer = document.querySelector('.footer');
+        const totalItems = document.querySelectorAll('.file-item').length;
         if (selectedFiles.size > 0) {{
             batchBar.classList.add('active');
             if (footer) footer.classList.add('hidden-by-batch');
@@ -151,6 +159,18 @@ def render_listing(
         }} else {{
             batchBar.classList.remove('active');
             if (footer) footer.classList.remove('hidden-by-batch');
+            batchCount.textContent = '0 selected';
+        }}
+        const selectAllCb = document.getElementById('select-all-checkbox');
+        const selectAllW = document.getElementById('select-all-wrapper');
+        if (selectAllCb && selectAllW) {{
+            if (selectedFiles.size === totalItems && totalItems > 0) {{
+                selectAllCb.classList.add('checked');
+                selectAllW.classList.add('checked');
+            }} else {{
+                selectAllCb.classList.remove('checked');
+                selectAllW.classList.remove('checked');
+            }}
         }}
     }}
 
@@ -205,6 +225,43 @@ def render_listing(
         }});
         document.body.appendChild(form);
         form.submit();
+    }}
+
+    function toggleSelectAll() {{
+        const allSelected = selectedFiles.size === document.querySelectorAll('.file-item').length;
+        if (allSelected) {{
+            clearSelection();
+        }} else {{
+            document.querySelectorAll('.file-item').forEach(item => {{
+                const path = item.getAttribute('data-path');
+                if (path && !selectedFiles.has(path)) {{
+                    const cb = item.querySelector('.file-checkbox');
+                    selectedFiles.add(path);
+                    if (cb) cb.classList.add('checked');
+                    item.classList.add('selected');
+                }}
+            }});
+            updateBatchBar();
+            document.getElementById('select-all-checkbox').classList.add('checked');
+            document.getElementById('select-all-wrapper').classList.add('checked');
+        }}
+    }}
+
+    function renameFile(path) {{
+        const newName = prompt('Rename to:', path.split('/').pop());
+        if (newName && newName !== path.split('/').pop()) {{
+            const parts = path.split('/');
+            parts[parts.length - 1] = newName;
+            const destination = parts.join('/');
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/move';
+            const s = document.createElement('input'); s.type = 'hidden'; s.name = 'source'; s.value = path; form.appendChild(s);
+            const d = document.createElement('input'); d.type = 'hidden'; d.name = 'destination'; d.value = destination; form.appendChild(d);
+            const c = document.createElement('input'); c.type = 'hidden'; c.name = '_csrf'; c.value = '{escape_html(csrf_token)}'; form.appendChild(c);
+            document.body.appendChild(form);
+            form.submit();
+        }}
     }}
 
     function toggleHidden(show) {{
@@ -296,11 +353,13 @@ def _render_file_item(file_info: FileInfo, current_path: str, features: dict, cs
     
     # Build download button
     download_html = ''
+    rename_html = ''
     if file_info.is_dir:
-        download_html = f'<a href="{DOWNLOAD}?p={encoded_path}" class="file-action-btn" title="Download as ZIP">\U0001f4e5</a>'
+        download_html = f'<a href="{DOWNLOAD}?p={encoded_path}" class="file-action-btn" title="Download as ZIP">📥</a>'
     else:
-        download_html = f'<a href="{RAW}?p={encoded_path}" class="file-action-btn" title="Download">\U0001f4e5</a>'
-    
+        download_html = f'<a href="{RAW}?p={encoded_path}" class="file-action-btn" title="Download">📥</a>'
+    if not file_info.is_dir and file_info.is_text and features.get("edit", True):
+        rename_html = f'<button class="file-action-btn" title="Rename" onclick="event.stopPropagation(); renameFile(\'{escape_html(file_info.path)}\')">✏️</button>'
     return f'''
     <div class="file-group" style="margin-bottom: 2px;">
         <div class="file-item" data-path="{escape_html(file_info.path)}">
@@ -311,11 +370,12 @@ def _render_file_item(file_info: FileInfo, current_path: str, features: dict, cs
                 <div class="file-meta">{meta_html}</div>
             </div>
             {download_html}
+            {rename_html}
         </div>
     </div>'''
 
 
-def _build_pagination(page: int, total_pages: int, current_path: str, search_query: str) -> str:
+def _build_pagination(page: int, total_pages: int, current_path: str, search_query: str, show_hidden: bool = False) -> str:
     if total_pages <= 1:
         return ""
     encoded_path = quote(current_path)
@@ -323,13 +383,13 @@ def _build_pagination(page: int, total_pages: int, current_path: str, search_que
     buttons = []
     
     if page > 1:
-        buttons.append(f'<a href="/?p={encoded_path}&page={page-1}&q={encoded_query}" class="btn btn-sm btn-ghost">\u2190 Previous</a>')
+        buttons.append(f'<a href="/?p={encoded_path}&page={page-1}&q={encoded_query}&hidden={"1" if show_hidden else "0"}" class="btn btn-sm btn-ghost">← Previous</a>')
     
     start = max(1, page - 2)
     end = min(total_pages, page + 2)
     
     if start > 1:
-        buttons.append(f'<a href="/?p={encoded_path}&page=1&q={encoded_query}" class="btn btn-sm btn-ghost">1</a>')
+        buttons.append(f'<a href="/?p={encoded_path}&page=1&q={encoded_query}&hidden={"1" if show_hidden else "0"}" class="btn btn-sm btn-ghost">1</a>')
         if start > 2:
             buttons.append('<span style="color: var(--text-muted);">...</span>')
     
@@ -337,14 +397,14 @@ def _build_pagination(page: int, total_pages: int, current_path: str, search_que
         if p == page:
             buttons.append(f'<span class="btn btn-sm" style="background: var(--accent-bg); color: var(--accent);">{p}</span>')
         else:
-            buttons.append(f'<a href="/?p={encoded_path}&page={p}&q={encoded_query}" class="btn btn-sm btn-ghost">{p}</a>')
+            buttons.append(f'<a href="/?p={encoded_path}&page={p}&q={encoded_query}&hidden={"1" if show_hidden else "0"}" class="btn btn-sm btn-ghost">{p}</a>')
     
     if end < total_pages:
         if end < total_pages - 1:
             buttons.append('<span style="color: var(--text-muted);">...</span>')
-        buttons.append(f'<a href="/?p={encoded_path}&page={total_pages}&q={encoded_query}" class="btn btn-sm btn-ghost">{total_pages}</a>')
+        buttons.append(f'<a href="/?p={encoded_path}&page={total_pages}&q={encoded_query}&hidden={"1" if show_hidden else "0"}" class="btn btn-sm btn-ghost">{total_pages}</a>')
     
     if page < total_pages:
-        buttons.append(f'<a href="/?p={encoded_path}&page={page+1}&q={encoded_query}" class="btn btn-sm btn-ghost">Next \u2192</a>')
+        buttons.append(f'<a href="/?p={encoded_path}&page={page+1}&q={encoded_query}&hidden={"1" if show_hidden else "0"}" class="btn btn-sm btn-ghost">Next →</a>')
     
     return f'<div style="display: flex; justify-content: center; gap: 8px; margin: 24px 0; flex-wrap: wrap;">{"".join(buttons)}</div>'

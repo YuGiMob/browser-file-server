@@ -309,5 +309,37 @@ class TestGetFormData(unittest.TestCase):
         handler._buffered_body = b'foo=bar'
         result = FileServerHandler._get_form_data(handler)
         self.assertEqual(result, {})
+
+class TestReadOnlyMode(unittest.TestCase):
+    def test_read_only_blocks_post(self):
+        from unittest.mock import MagicMock
+        handler = MagicMock()
+        handler.config.features.read_only = True
+        handler._check_rate_limit.return_value = True
+        handler._check_ip_filter.return_value = True
+        handler.headers = {}
+        result = FileServerHandler.do_POST(handler)
+        handler._send_error.assert_called_with(403, "Server is in read-only mode")
+
+    def test_read_only_allows_get(self):
+        from unittest.mock import MagicMock
+        handler = MagicMock()
+        handler.config.features.read_only = True
+        handler._check_rate_limit.return_value = True
+        handler._check_ip_filter.return_value = True
+        handler.path = '/health'
+        result = FileServerHandler.do_GET(handler)
+        handler._handle_health.assert_called_once()
+
+class TestUploadSizeLimit(BaseTest):
+    def test_max_upload_size_enforced_in_multipart(self):
+        from unittest.mock import MagicMock
+        handler = MagicMock()
+        handler.config.server.max_upload_size = 10
+        handler.headers = {'Content-Type': 'multipart/form-data; boundary=B'}
+        handler._buffered_body = b'x' * 100
+        with self.assertRaises(ValueError):
+            FileServerHandler._get_multipart_data(handler)
+
 if __name__ == "__main__":
     unittest.main()

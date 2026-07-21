@@ -3,6 +3,7 @@ Formatting utilities.
 """
 
 import os
+import stat
 from datetime import datetime
 
 

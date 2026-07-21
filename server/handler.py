@@ -446,6 +446,10 @@ class FileServerHandler(BaseHTTPRequestHandler):
                 self._send_error(403, "Access denied")
                 return
 
+            if self.config.features.read_only:
+                self._send_error(403, "Server is in read-only mode")
+                return
+
             if not self._validate_post_csrf():
                 self._send_error(403, "CSRF validation failed. Please refresh the page and try again.")
                 return
@@ -666,7 +670,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
         content = None
         if is_text:
             try:
-                content = target.read_text(encoding="utf-8", errors="replace")
+                content = target.read_text(encoding="utf-8", errors="replace")[:51200]
             except (OSError, PermissionError, UnicodeDecodeError):
                 logger.warning(f"Could not read file content for preview: {rel_path}")
 

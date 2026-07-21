@@ -54,6 +54,7 @@ DEFAULTS = {
         "download_zip": True,
         "move": True,
         "copy": True,
+        "read_only": False,
     },
     "ui": {
         "theme": "dark",  # dark, light, auto
@@ -121,6 +122,7 @@ class FeaturesConfig:
     download_zip: bool = True
     move: bool = True
     copy: bool = True
+    read_only: bool = False
 
 
 @dataclass
@@ -262,6 +264,7 @@ def apply_env_vars(config: Dict[str, Any]) -> Dict[str, Any]:
         "FILESERVER_FEATURE_DOWNLOAD_ZIP": ("features", "download_zip"),
         "FILESERVER_FEATURE_MOVE": ("features", "move"),
         "FILESERVER_FEATURE_COPY": ("features", "copy"),
+        "FILESERVER_FEATURE_READ_ONLY": ("features", "read_only"),
         "FILESERVER_LOG_LEVEL": ("logging", "level"),
         "FILESERVER_LOG_FILE": ("logging", "file"),
         "FILESERVER_LOG_MAX_SIZE": ("logging", "max_size"),
@@ -382,6 +385,11 @@ Environment Variables:
         help="Disable file deletion",
     )
     parser.add_argument(
+        "--read-only",
+        action="store_true",
+        help="Enable read-only mode (disables all mutations)",
+    )
+    parser.add_argument(
         "--show-hidden",
         action="store_true",
         help="Show hidden files (starting with .)",
@@ -436,7 +444,8 @@ def build_config() -> Config:
         config_dict["features"]["delete"] = False
     if args.show_hidden:
         config_dict["ui"]["show_hidden"] = True
-
+    if args.read_only:
+        config_dict["features"]["read_only"] = True
     # Build Config object
     config = Config(
         server=ServerConfig(
