@@ -23,7 +23,7 @@ from typing import Dict, Optional, Tuple
 from urllib.parse import urlparse, parse_qs, quote
 from pathlib import Path
 
-from . import __version__, ROOT, RAW, SEARCH, DOWNLOAD, API_FILES, HEALTH, SAVE, UPLOAD, MKDIR, DELETE, MOVE, COPY, DOWNLOAD_SELECTED
+from . import __version__, ROOT, RAW, SEARCH, DOWNLOAD, API_FILES, HEALTH, SAVE, UPLOAD, MKDIR, DELETE, MOVE, COPY, DOWNLOAD_SELECTED, BATCH_DELETE
 from .config import Config
 from .security import (
     PathSecurity, RateLimiter, IPFilter,
@@ -40,6 +40,11 @@ from .utils.format import escape_html
 logger = logging.getLogger(__name__)
 
 MAX_FORM_BODY_SIZE = 10 * 1024 * 1024
+CSRF_WINDOW_SECONDS = 3600
+STREAM_CHUNK_SIZE = 65536
+CACHE_MAX_AGE = 3600
+RATE_LIMIT_CLEANUP_INTERVAL = 100
+UPLOAD_COLLISION_MAX = 999
 
 
 class FileServerHandler(BaseHTTPRequestHandler):
@@ -68,7 +73,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
 
     def _generate_csrf_token(self) -> str:
         secret = self._get_csrf_secret()
-        window = str(int(time.time()) // 3600)
+        window = str(int(time.time()) // CSRF_WINDOW_SECONDS)
         if hasattr(self, 'headers'):
             client_ip = get_client_ip(self)
         else:
@@ -81,7 +86,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
         secret = self._get_csrf_secret()
         client_ip = get_client_ip(self)
         for offset in (0, -1):
-            window = str((int(time.time()) // 3600) + offset)
+            window = str((int(time.time()) // CSRF_WINDOW_SECONDS) + offset)
             expected = hmac.new(secret, f"{client_ip}:{window}".encode(), hashlib.sha256).hexdigest()[:32]
             if hmac.compare_digest(token, expected):
                 return True
@@ -183,7 +188,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
                 self.send_header('Content-Length', str(content_length))
                 self.send_header('Content-Range', f'bytes {start}-{end}/{file_size}')
                 self.send_header('Last-Modified', time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.gmtime(stat.st_mtime)))
-                self.send_header('Cache-Control', 'private, max-age=3600')
+                self.send_header('Cache-Control', f'private, max-age={CACHE_MAX_AGE}')
                 self.send_header('X-Request-ID', self.request_id)
                 for key, value in self.security_headers.get_headers().items():
                     self.send_header(key, value)
@@ -199,7 +204,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
                         f.seek(start)
                         remaining = content_length
                         while remaining > 0:
-                            chunk_size = min(65536, remaining)
+                            chunk_size = min(STREAM_CHUNK_SIZE, remaining)
                             chunk = f.read(chunk_size)
                             if not chunk:
                                 break
@@ -213,7 +218,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', content_type)
         self.send_header('Content-Length', str(file_size))
         self.send_header('Last-Modified', time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.gmtime(stat.st_mtime)))
-        self.send_header('Cache-Control', 'private, max-age=3600')
+        self.send_header('Cache-Control', f'private, max-age={CACHE_MAX_AGE}')
         self.send_header('X-Request-ID', self.request_id)
 
         for key, value in self.security_headers.get_headers().items():
@@ -268,7 +273,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
         if not hasattr(self.__class__, '_request_count'):
             self.__class__._request_count = 0
         self.__class__._request_count += 1
-        if self.__class__._request_count % 100 == 0:
+        if self.__class__._request_count % RATE_LIMIT_CLEANUP_INTERVAL == 0:
             self.rate_limiter.cleanup()
 
         client_ip = get_client_ip(self)
@@ -462,6 +467,8 @@ class FileServerHandler(BaseHTTPRequestHandler):
                 self._handle_copy()
             elif path == DOWNLOAD_SELECTED:
                 self._handle_download_selected()
+            elif path == BATCH_DELETE:
+                self._handle_batch_delete()
             else:
                 self._send_error(404, "Not found")
 
@@ -487,7 +494,11 @@ class FileServerHandler(BaseHTTPRequestHandler):
                 return False
 
         content_type = self.headers.get('Content-Type', '')
-        content_length = int(self.headers.get('Content-Length', 0))
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+        except (ValueError, TypeError):
+            self._send_error(400, 'Invalid Content-Length header')
+            return False
 
         max_size = MAX_FORM_BODY_SIZE
         if content_type.startswith('multipart/form-data'):
@@ -509,7 +520,8 @@ class FileServerHandler(BaseHTTPRequestHandler):
                     if token and not self._validate_csrf_token(token):
                         return False
                 except Exception:
-                    logger.warning("Error validating CSRF token", exc_info=True)
+                    logger.warning('Error validating CSRF token', exc_info=True)
+                    return False
 
             elif content_type.startswith('multipart/form-data'):
                 try:
@@ -517,7 +529,8 @@ class FileServerHandler(BaseHTTPRequestHandler):
                     if token and not self._validate_csrf_token(token):
                         return False
                 except Exception:
-                    logger.warning("Error validating CSRF token in multipart", exc_info=True)
+                    logger.warning('Error validating CSRF token in multipart', exc_info=True)
+                    return False
 
         return True
 
@@ -728,6 +741,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
             return
 
         results = self.storage.search(query, search_path, show_hidden=show_hidden)
+        results.sort(key=lambda x: x.name.lower())
 
         html = render_listing(
             files=results,
@@ -856,7 +870,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
                 stem = target_file.stem
                 suffix = target_file.suffix
                 counter = 1
-                while True:
+                while counter <= UPLOAD_COLLISION_MAX:
                     new_name = f"{stem}_{counter}{suffix}"
                     candidate = target_dir / new_name
                     if not candidate.exists():
@@ -932,6 +946,50 @@ class FileServerHandler(BaseHTTPRequestHandler):
             self._send_redirect(f"/?p={quote(parent)}")
         except (OSError, PermissionError) as e:
             self._send_error(500, f"Error deleting: {e}")
+
+    def _handle_batch_delete(self):
+        if not self._check_feature('delete', 'Deletion'):
+            return
+        if not hasattr(self, '_buffered_body') or not self._buffered_body:
+            self._send_error(400, 'Request body not available')
+            return
+        body = self._buffered_body.decode('utf-8')
+        params = parse_qs(body)
+        paths = params.get('files', [])
+        if not paths:
+            self._send_error(400, 'No files selected')
+            return
+        current_path = params.get('p', [''])[0]
+        deleted = []
+        errors = []
+        for rel_path in paths:
+            target = self._resolve_path(rel_path)
+            if target is None:
+                errors.append(rel_path)
+                continue
+            if not target.exists():
+                errors.append(rel_path)
+                continue
+            if target == self.config.get_root_path():
+                errors.append(rel_path)
+                continue
+            try:
+                if target.is_dir():
+                    shutil.rmtree(target)
+                else:
+                    target.unlink()
+                deleted.append(rel_path)
+            except (OSError, PermissionError) as e:
+                logger.exception(f'Error deleting {rel_path}: {e}')
+                errors.append(rel_path)
+        if deleted:
+            logger.info(f'[{self.request_id}] Batch deleted: {deleted}')
+        if errors:
+            msg = f'Deleted {len(deleted)}, failed: {len(errors)}'
+            self._send_redirect(f"/?p={quote(current_path)}&error={quote(msg)}")
+        else:
+            msg = f'Deleted {len(deleted)} items'
+            self._send_redirect(f"/?p={quote(current_path)}&success={quote(msg)}")
 
     def _handle_move(self):
         if not self._check_feature('move', 'Move'):

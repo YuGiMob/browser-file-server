@@ -21,6 +21,10 @@ import mimetypes
 
 from .utils.format import format_size, format_time, format_permissions
 from .utils.mime import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, AUDIO_EXTENSIONS, ARCHIVE_EXTENSIONS, TEXT_EXTENSIONS, guess_mime_type
+TEXT_SNIFF_SIZE = 8192
+TEXT_SNIFF_THRESHOLD = 0.85
+SEARCH_MAX_RESULTS = 100
+
 
 @dataclass
 class FileInfo:
@@ -97,7 +101,7 @@ class Storage:
 
         if not is_dir:
             mime_type = guess_mime_type(path.name)
-            is_text = self.is_text_file(path)
+            is_text = self.is_text_file(path, content_sniff=False)
 
         # Get permissions string
         permissions = format_permissions(stat.st_mode)
@@ -410,7 +414,7 @@ class Storage:
         except OSError:
             return {"total": 0, "used": 0, "free": 0}
 
-    def is_text_file(self, path: Path) -> bool:
+    def is_text_file(self, path: Path, content_sniff: bool = True) -> bool:
         """Check if a file is a text file."""
         # Check extension first
         ext = path.suffix.lower()
@@ -422,16 +426,19 @@ class Storage:
         if name in ('makefile', 'dockerfile', 'cmakelists.txt', 'readme', 'license', 'changelog'):
             return True
 
+        if not content_sniff:
+            return False
+
         # Content sniffing
         try:
             with open(path, 'rb') as f:
-                sample = f.read(8192)
+                sample = f.read(TEXT_SNIFF_SIZE)
             if not sample:
                 return True
             if b'\x00' in sample:
                 return False
             printable = sum(1 for b in sample if 9 <= b <= 13 or 32 <= b <= 126 or b >= 128)
-            return printable / len(sample) > 0.85
+            return printable / len(sample) > TEXT_SNIFF_THRESHOLD
         except (OSError, PermissionError):
             return False
 

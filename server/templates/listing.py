@@ -8,7 +8,7 @@ from urllib.parse import quote
 from ..storage import FileInfo, format_size, get_icon_for_file
 from ..utils.format import escape_html
 from ..utils.path import get_parent_path, build_path_breadcrumb
-from .. import UPLOAD, SEARCH, DOWNLOAD, RAW, DELETE, DOWNLOAD_SELECTED
+from .. import UPLOAD, SEARCH, DOWNLOAD, RAW, DELETE, DOWNLOAD_SELECTED, BATCH_DELETE
 from .base import _render_header
 def render_listing(
     files: List[FileInfo],
@@ -183,23 +183,28 @@ def render_listing(
     function deleteSelected() {{
         if (selectedFiles.size === 0) return;
         if (!confirm(`Delete ${{selectedFiles.size}} items?`)) return;
-        selectedFiles.forEach(path => {{
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = '{DELETE}';
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{BATCH_DELETE}';
+        const pathInput = document.createElement('input');
+        pathInput.type = 'hidden';
+        pathInput.name = 'p';
+        pathInput.value = '{escape_html(current_path)}';
+        form.appendChild(pathInput);
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = '_csrf';
+        csrfInput.value = '{escape_html(csrf_token)}';
+        form.appendChild(csrfInput);
+        selectedFiles.forEach(f => {{
             const input = document.createElement('input');
             input.type = 'hidden';
-            input.name = 'p';
-            input.value = path;
+            input.name = 'files';
+            input.value = f;
             form.appendChild(input);
-            const csrfInput = document.createElement('input');
-            csrfInput.type = 'hidden';
-            csrfInput.name = '_csrf';
-            csrfInput.value = '{escape_html(csrf_token)}';
-            form.appendChild(csrfInput);
-            document.body.appendChild(form);
-            form.submit();
         }});
+        document.body.appendChild(form);
+        form.submit();
     }}
 
     function toggleHidden(show) {{

@@ -7,7 +7,7 @@ A modern, secure HTTP file server with a beautiful web UI. Written in Python wit
 ### Core Features
 - 📁 **Directory Browsing** - Navigate folders with beautiful UI
 - 📝 **File Editing** - Edit text files in-browser with Ctrl+S to save
-- 🔍 **Search** - Find files quickly with full-text search
+- 🔍 **Search** - Find files quickly by filename
 - ⬆️ **Upload** - Drag-and-drop file uploads
 - ⬇️ **Download** - Download files and folders (as ZIP)
 - 📁 **Create Folders** - Create new directories

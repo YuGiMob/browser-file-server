@@ -77,7 +77,7 @@ CUSTOM_MIME_TYPES = {
 }
 
 TEXT_EXTENSIONS = set(CUSTOM_MIME_TYPES.keys()) | {
-    '.bash', '.zsh', '.fish', '.pyw', '.mjs', '.cjs',
+    '.txt', '.bash', '.zsh', '.fish', '.pyw', '.mjs', '.cjs',
     '.scss', '.sass', '.less', '.rtf',
     '.vb', '.pm', '.R',
     '.env.example', '.env.local',
