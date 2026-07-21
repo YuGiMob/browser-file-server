@@ -20,7 +20,7 @@ from dataclasses import dataclass
 import mimetypes
 
 from .utils.format import format_size, format_time, format_permissions
-from .utils.mime import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, AUDIO_EXTENSIONS, ARCHIVE_EXTENSIONS, TEXT_EXTENSIONS
+from .utils.mime import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, AUDIO_EXTENSIONS, ARCHIVE_EXTENSIONS, TEXT_EXTENSIONS, guess_mime_type
 
 @dataclass
 class FileInfo:
@@ -96,7 +96,7 @@ class Storage:
         is_text = False
 
         if not is_dir:
-            mime_type, _ = mimetypes.guess_type(str(path))
+            mime_type = guess_mime_type(path.name)
             is_text = self.is_text_file(path)
 
         # Get permissions string
@@ -389,10 +389,12 @@ class Storage:
 
     def _add_dir_to_zip(self, zf: zipfile.ZipFile, dir_path: Path, base_path: Path):
         """Add directory contents to ZIP."""
-        for item in dir_path.rglob('*'):
-            if item.is_file():
-                arcname = item.relative_to(base_path)
-                zf.write(item, arcname)
+        for root, dirs, files in os.walk(dir_path):
+            root_path = Path(root)
+            for file in files:
+                file_path = root_path / file
+                arcname = file_path.relative_to(base_path)
+                zf.write(file_path, arcname)
 
     def get_disk_usage(self) -> Dict[str, int]:
         """

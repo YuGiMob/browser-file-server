@@ -515,11 +515,11 @@ class FileServerHandler(BaseHTTPRequestHandler):
         except ValueError:
             page = 1
 
-        if "edit" in params and rel_path and not rel_path.endswith("/"):
+        if params.get("edit") == "1" and rel_path and not rel_path.endswith("/"):
             self._handle_editor(params)
             return
 
-        if "preview" in params and rel_path and not rel_path.endswith("/"):
+        if params.get("preview") == "1" and rel_path and not rel_path.endswith("/"):
             self._handle_preview(params)
             return
 
@@ -590,6 +590,9 @@ class FileServerHandler(BaseHTTPRequestHandler):
         if not target.is_file():
             self._send_error(400, "Not a file")
             return
+        if not self.storage.is_text_file(target):
+            self._send_error(400, "Not a text file")
+            return
 
         try:
             content = target.read_text(encoding="utf-8", errors="replace")
@@ -607,6 +610,8 @@ class FileServerHandler(BaseHTTPRequestHandler):
 
     def _handle_preview(self, params: Dict[str, str]):
         rel_path = params.get("p", "")
+        if not self._check_feature('preview', 'Preview'):
+            return
 
         target = self._resolve_path(rel_path)
         if target is None:
@@ -688,6 +693,8 @@ class FileServerHandler(BaseHTTPRequestHandler):
 
     def _handle_search(self, params: Dict[str, str]):
         query = params.get("q", "")
+        if not self._check_feature('search', 'Search'):
+            return
         rel_path = params.get("p", "")
         show_hidden = params.get("hidden", "1" if self.config.ui.show_hidden else "0") == "1"
 
@@ -888,6 +895,9 @@ class FileServerHandler(BaseHTTPRequestHandler):
         if not target.exists():
             self._send_error(404, "Path not found")
             return
+        if target == self.config.get_root_path():
+            self._send_error(400, "Cannot delete root directory")
+            return
 
         try:
             if target.is_dir():
@@ -921,6 +931,9 @@ class FileServerHandler(BaseHTTPRequestHandler):
         if not source_path.exists():
             self._send_error(404, "Source not found")
             return
+        if source_path == self.config.get_root_path():
+            self._send_error(400, "Cannot move root directory")
+            return
 
         try:
             dest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -951,6 +964,9 @@ class FileServerHandler(BaseHTTPRequestHandler):
 
         if not source_path.exists():
             self._send_error(404, "Source not found")
+            return
+        if source_path == self.config.get_root_path():
+            self._send_error(400, "Cannot copy root directory")
             return
 
         if not self.storage.copy(source_path, dest_path):

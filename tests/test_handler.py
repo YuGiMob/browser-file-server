@@ -3,8 +3,9 @@ import os
 import json
 from pathlib import Path
 
-from tests.base import BaseTest
+from tests.base import BaseTest, BaseServerTest
 from server.storage import Storage
+from server.handler import FileServerHandler
 
 
 class TestHandlerIntegration(BaseTest):
@@ -118,5 +119,52 @@ class TestHandlerIntegration(BaseTest):
         self.assertEqual(len(files), 2)
 
 
+class TestRootDeletionGuard(BaseServerTest):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        (cls.temp_dir / "test.txt").write_text("content")
+
+    def test_cannot_delete_root(self):
+        body, status = self._post('/delete', {'p': ''})
+        self.assertEqual(status, 400)
+        self.assertTrue(self.temp_dir.exists())
+
+    def test_cannot_move_root(self):
+        body, status = self._post('/move', {'source': '', 'destination': 'moved'})
+        self.assertEqual(status, 400)
+        self.assertTrue(self.temp_dir.exists())
+
+    def test_cannot_copy_root(self):
+        body, status = self._post('/copy', {'source': '', 'destination': 'copy'})
+        self.assertEqual(status, 400)
+
+
+class TestMultipartParser(unittest.TestCase):
+    def test_extract_csrf_from_multipart(self):
+        body = (
+            b'--boundary\r\n'
+            b'Content-Disposition: form-data; name="_csrf"\r\n'
+            b'\r\n'
+            b'test-token-value\r\n'
+            b'--boundary--\r\n'
+        )
+        result = FileServerHandler._extract_csrf_from_multipart(None, body)
+        self.assertEqual(result, 'test-token-value')
+
+    def test_extract_csrf_from_multipart_no_token(self):
+        body = (
+            b'--boundary\r\n'
+            b'Content-Disposition: form-data; name="other"\r\n'
+            b'\r\n'
+            b'value\r\n'
+            b'--boundary--\r\n'
+        )
+        result = FileServerHandler._extract_csrf_from_multipart(None, body)
+        self.assertEqual(result, '')
+
+    def test_extract_csrf_from_multipart_empty_body(self):
+        result = FileServerHandler._extract_csrf_from_multipart(None, b'')
+        self.assertEqual(result, '')
 if __name__ == "__main__":
     unittest.main()

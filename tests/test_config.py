@@ -5,7 +5,8 @@ from pathlib import Path
 from tests.base import BaseTest
 from server.config import (
     Config, ServerConfig, SecurityConfig, FeaturesConfig, UIConfig, LoggingConfig,
-    SSLConfig, RateLimitConfig, load_config_file, merge_configs, validate_config, apply_env_vars
+    SSLConfig, RateLimitConfig, load_config_file, merge_configs, validate_config, apply_env_vars,
+    _parse_simple_config
 )
 
 
@@ -153,5 +154,45 @@ class TestApplyEnvVars(unittest.TestCase):
         self.assertEqual(result['server']['port'], 8080)
 
 
+
+class TestSimpleConfigParser(BaseTest):
+    def test_parse_simple_key_value(self):
+        config_path = os.path.join(self.temp_dir, "simple.txt")
+        with open(config_path, "w") as f:
+            f.write("server:\n")
+            f.write("host=0.0.0.0\n")
+            f.write("port=9000\n")
+        result = _parse_simple_config(config_path)
+        self.assertIn("server", result)
+        self.assertEqual(result["server"]["host"], "0.0.0.0")
+        self.assertEqual(result["server"]["port"], 9000)
+
+    def test_parse_boolean_values(self):
+        config_path = os.path.join(self.temp_dir, "bool.txt")
+        with open(config_path, "w") as f:
+            f.write("features:\n")
+            f.write("upload=true\n")
+            f.write("delete=false\n")
+        result = _parse_simple_config(config_path)
+        self.assertTrue(result["features"]["upload"])
+        self.assertFalse(result["features"]["delete"])
+
+    def test_parse_list_values(self):
+        config_path = os.path.join(self.temp_dir, "list.txt")
+        with open(config_path, "w") as f:
+            f.write("security:\n")
+            f.write("allowed_ips=192.168.1.1,10.0.0.0/8\n")
+        result = _parse_simple_config(config_path)
+        self.assertEqual(result["security"]["allowed_ips"], ["192.168.1.1", "10.0.0.0/8"])
+
+    def test_parse_skips_comments_and_blanks(self):
+        config_path = os.path.join(self.temp_dir, "comments.txt")
+        with open(config_path, "w") as f:
+            f.write("# This is a comment\n")
+            f.write("\n")
+            f.write("server:\n")
+            f.write("port=8080\n")
+        result = _parse_simple_config(config_path)
+        self.assertEqual(result["server"]["port"], 8080)
 if __name__ == "__main__":
     unittest.main()

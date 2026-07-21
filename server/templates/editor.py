@@ -78,8 +78,8 @@ def render_editor(
                 </div>
             </div>
 
-            <div id="editor-container" style="border: none; border-radius: var(--radius); overflow: hidden;"></div>
-            <textarea name="content" id="editor-textarea" style="display: none;">{escape_html(content)}</textarea>
+            <div id="editor-container" style="border: none; border-radius: var(--radius); overflow: hidden; display: none;"></div>
+            <textarea name="content" id="editor-textarea" style="width: 100%; min-height: 60vh; background: var(--bg-secondary); color: var(--text-primary); border: none; border-radius: var(--radius); font-family: 'SF Mono', 'Menlo', 'Consolas', monospace; font-size: 15px; line-height: 1.6; padding: 16px; resize: vertical; tab-size: 4; -webkit-appearance: none;">{escape_html(content)}</textarea>
 
             <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
                 <div style="color: var(--text-muted); font-size: 13px;">
@@ -128,29 +128,43 @@ def render_editor(
     const mode = MODE_MAP[ext] || null;
 
     const textarea = document.getElementById('editor-textarea');
-    const editor = CodeMirror(document.getElementById('editor-container'), {{
-        value: textarea.value,
-        mode: mode,
-        theme: 'material-darker',
-        lineNumbers: true,
-        indentUnit: 4,
-        tabSize: 4,
-        indentWithTabs: false,
-        lineWrapping: false,
-        viewportMargin: Infinity,
-        readOnly: {'true' if read_only else 'false'},
-        extraKeys: {{
-            'Tab': function(cm) {{ cm.replaceSelection('    ', 'end'); }},
-            'Shift-Tab': function(cm) {{ cm.execCommand('indentLess'); }},
-        }},
-    }});
+    let editor = null;
+
+    if (typeof CodeMirror !== 'undefined') {{
+        try {{
+            editor = CodeMirror(document.getElementById('editor-container'), {{
+                value: textarea.value,
+                mode: mode,
+                theme: 'material-darker',
+                lineNumbers: true,
+                indentUnit: 4,
+                tabSize: 4,
+                indentWithTabs: false,
+                lineWrapping: false,
+                viewportMargin: Infinity,
+                readOnly: {'true' if read_only else 'false'},
+                extraKeys: {{
+                    'Tab': function(cm) {{ cm.replaceSelection('    ', 'end'); }},
+                    'Shift-Tab': function(cm) {{ cm.execCommand('indentLess'); }},
+                }},
+            }});
+            document.getElementById('editor-container').style.display = '';
+            textarea.style.display = 'none';
+        }} catch (e) {{
+            textarea.style.display = '';
+        }}
+    }} else {{
+        textarea.style.display = '';
+    }}
 
     document.getElementById('editor-form').addEventListener('submit', function() {{
-        textarea.value = editor.getValue();
+        if (editor) {{
+            textarea.value = editor.getValue();
+        }}
     }});
 
     function updateCounts() {{
-        const text = editor.getValue();
+        const text = editor ? editor.getValue() : textarea.value;
         const lines = text.split('\n').length;
         const chars = text.length;
         document.getElementById('line-count').textContent = lines + ' lines';
@@ -159,11 +173,12 @@ def render_editor(
 
     let undoStack = [];
     let redoStack = [];
-    let lastContent = editor.getValue();
+    let lastContent = editor ? editor.getValue() : textarea.value;
 
-    editor.on('change', function() {{
-        const val = editor.getValue();
+    function onContentChange() {{
+        const val = editor ? editor.getValue() : textarea.value;
         if (val !== lastContent) {{
+            if (undoStack.length >= 100) undoStack.shift();
             undoStack.push(lastContent);
             redoStack = [];
             lastContent = val;
@@ -176,20 +191,30 @@ def render_editor(
         window._saveTimeout = setTimeout(function() {{
             status.textContent = '';
         }}, 2000);
-    }});
+    }}
+
+    if (editor) {{
+        editor.on('change', onContentChange);
+    }} else {{
+        textarea.addEventListener('input', onContentChange);
+    }}
 
     function undoEdit() {{
         if (undoStack.length > 0) {{
-            redoStack.push(editor.getValue());
-            editor.setValue(undoStack.pop());
+            redoStack.push(editor ? editor.getValue() : textarea.value);
+            const val = undoStack.pop();
+            if (editor) editor.setValue(val);
+            else textarea.value = val;
             updateCounts();
         }}
     }}
 
     function redoEdit() {{
         if (redoStack.length > 0) {{
-            undoStack.push(editor.getValue());
-            editor.setValue(redoStack.pop());
+            undoStack.push(editor ? editor.getValue() : textarea.value);
+            const val = redoStack.pop();
+            if (editor) editor.setValue(val);
+            else textarea.value = val;
             updateCounts();
         }}
     }}
@@ -203,12 +228,15 @@ def render_editor(
             e.preventDefault();
             redoEdit();
         }}
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {{
+            e.preventDefault();
+            document.getElementById('editor-form').requestSubmit();
+        }}
     }});
 
     updateCounts();
     </script>
 """
-
     return html
 
 
