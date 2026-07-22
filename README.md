@@ -136,6 +136,7 @@ ui:
 export FILESERVER_HOST=0.0.0.0
 export FILESERVER_PORT=8080
 export FILESERVER_ROOT=/path/to/share
+export FILESERVER_CSRF_SECRET="your-hex-encoded-32-byte-secret"  # Optional, for persistent CSRF tokens across restarts
 ```
 
 ### Command-Line Arguments

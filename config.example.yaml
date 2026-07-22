@@ -55,6 +55,10 @@ security:
     origins:
       - "*"
 
+  # Optional: hex-encoded 32-byte secret for persistent CSRF tokens across restarts
+  # Set via environment variable: FILESERVER_CSRF_SECRET="your-hex-secret"
+  # If not set, a random secret is generated on each start
+
 features:
   # Enable file search (default: true)
   search: true

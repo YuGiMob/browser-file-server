@@ -73,13 +73,15 @@ def render_listing(
         empty_html = '<div class="empty-state"><div class="empty-state-icon">\U0001f4c2</div><div class="empty-state-title">No Files</div><div class="empty-state-text">This folder is empty. Upload files to get started.</div></div>'
     
     file_list_html = "".join(file_items)
+
+    encoded_query = quote(search_query) if search_query else ""
     
     toolbar_html = f'''
     <div class="toolbar">
         <div class="segmented-control">
-            <a href="/?p={encoded_path}&sort=name" class="segmented-btn {'active' if sort_by == 'name' else ''}">Name</a>
-            <a href="/?p={encoded_path}&sort=size" class="segmented-btn {'active' if sort_by == 'size' else ''}">Size</a>
-            <a href="/?p={encoded_path}&sort=modified" class="segmented-btn {'active' if sort_by == 'modified' else ''}">Date</a>
+            <a href="/?p={encoded_path}&sort=name&q={encoded_query}" class="segmented-btn {'active' if sort_by == 'name' else ''}">Name</a>
+            <a href="/?p={encoded_path}&sort=size&q={encoded_query}" class="segmented-btn {'active' if sort_by == 'size' else ''}">Size</a>
+            <a href="/?p={encoded_path}&sort=modified&q={encoded_query}" class="segmented-btn {'active' if sort_by == 'modified' else ''}">Date</a>
         </div>
         <div class="toolbar-spacer"></div>
         <label class="checkbox-wrapper" onclick="toggleSelectAll()" id="select-all-wrapper">

@@ -226,7 +226,8 @@ class FileServerHandler(BaseHTTPRequestHandler):
 
         if extra_headers:
             for key, value in extra_headers.items():
-                self.send_header(key, value)
+                if key not in ('Content-Length', 'Last-Modified'):
+                    self.send_header(key, value)
 
         self.end_headers()
 
@@ -567,7 +568,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
             return
 
         if target.is_file():
-            if not self._check_feature('preview', 'Preview'):
+            if not self.config.features.preview:
                 self._send_redirect(f"{RAW}?p={quote(rel_path)}")
                 return
             self._handle_preview(params)
@@ -642,6 +643,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
             file_path=rel_path,
             content=content,
             csrf_token=self.csrf_token,
+            theme=self.config.ui.theme,
         )
 
         self._send_html(200, html, f"Edit: {escape_html(rel_path)}")
@@ -734,6 +736,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
         if not self._check_feature('search', 'Search'):
             return
         rel_path = params.get("p", "")
+        sort_by = params.get("sort", "name")
         show_hidden = params.get("hidden", "1" if self.config.ui.show_hidden else "0") == "1"
 
         if not query:
@@ -751,7 +754,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
             files=results,
             current_path=rel_path,
             search_query=query,
-            sort_by="name",
+            sort_by=sort_by,
             show_hidden=show_hidden,
             flash_message=f"Found {len(results)} results for '{escape_html(query)}'",
             flash_type="info",

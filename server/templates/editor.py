@@ -14,6 +14,7 @@ def render_editor(
     flash_type: str = "success",
     read_only: bool = False,
     csrf_token: str = "",
+    theme: str = "dark",
 ) -> str:
     """
     Render file editor HTML.
@@ -43,6 +44,8 @@ def render_editor(
 
     read_only_attr = "readonly" if read_only else ""
 
+    cm_theme = "material-darker" if theme == "dark" else "material"
+    cm_css = "material-darker.min.css" if theme == "dark" else "material.min.css"
     actions = f'''
         <a href="/?p={encoded_path}" class="btn-icon" title="View">👁️</a>
         <a href="/raw?p={encoded_path}" class="btn-icon" title="Download">⬇️</a>
@@ -92,7 +95,7 @@ def render_editor(
     </div>
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/theme/material-darker.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/theme/{cm_css}">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/python/python.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/javascript/javascript.min.js"></script>
@@ -135,7 +138,7 @@ def render_editor(
             editor = CodeMirror(document.getElementById('editor-container'), {{
                 value: textarea.value,
                 mode: mode,
-                theme: 'material-darker',
+                theme: '{cm_theme}',
                 lineNumbers: true,
                 indentUnit: 4,
                 tabSize: 4,

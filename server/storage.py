@@ -11,6 +11,7 @@ Provides:
 import os
 import shutil
 import zipfile
+import zlib
 import io
 import tempfile
 import time
@@ -24,6 +25,7 @@ from .utils.mime import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, AUDIO_EXTENSIONS, AR
 TEXT_SNIFF_SIZE = 8192
 TEXT_SNIFF_THRESHOLD = 0.85
 SEARCH_MAX_RESULTS = 100
+ZIP_COMPRESSION = zipfile.ZIP_DEFLATED if hasattr(zlib, 'compress') else zipfile.ZIP_STORED
 
 
 @dataclass
@@ -373,7 +375,7 @@ class Storage:
     def create_zip(self, paths: List[Path]) -> Optional[bytes]:
         try:
             buffer = io.BytesIO()
-            with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            with zipfile.ZipFile(buffer, 'w', ZIP_COMPRESSION) as zf:
                 self._add_paths_to_zip(zf, paths)
             return buffer.getvalue()
         except (OSError, PermissionError):
@@ -382,7 +384,7 @@ class Storage:
     def create_zip_file(self, paths: List[Path]) -> Optional[Path]:
         try:
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
-            with zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED) as zf:
+            with zipfile.ZipFile(tmp, 'w', ZIP_COMPRESSION) as zf:
                 self._add_paths_to_zip(zf, paths)
             return Path(tmp.name)
         except (OSError, PermissionError):
