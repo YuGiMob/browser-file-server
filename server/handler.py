@@ -376,7 +376,14 @@ class FileServerHandler(BaseHTTPRequestHandler):
                 pos = next_idx
 
         for part in parts:
-            part = part.strip(b'\r\n').strip(b'\n')
+            if part.startswith(b'\r\n'):
+                part = part[2:]
+            elif part.startswith(b'\n'):
+                part = part[1:]
+            if part.endswith(b'\r\n'):
+                part = part[:-2]
+            elif part.endswith(b'\n'):
+                part = part[:-1]
             if not part:
                 continue
 
@@ -689,7 +696,8 @@ class FileServerHandler(BaseHTTPRequestHandler):
         truncated = False
         if is_text:
             try:
-                content = target.read_text(encoding="utf-8", errors="replace")[:51200]
+                with target.open('r', encoding='utf-8', errors='replace') as f:
+                    content = f.read(51200)
                 truncated = stat.st_size > 51200
             except (OSError, PermissionError, UnicodeDecodeError):
                 logger.warning(f"Could not read file content for preview: {rel_path}")
@@ -741,8 +749,6 @@ class FileServerHandler(BaseHTTPRequestHandler):
 
         extra_headers = {
             "Content-Disposition": get_content_disposition(target.name, mime_type),
-            "Content-Length": str(stat.st_size),
-            "Last-Modified": last_modified,
         }
 
         try:
