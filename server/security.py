@@ -109,7 +109,8 @@ class PathSecurity:
         filename = filename.replace('\x00', '')
 
         # Remove path traversal sequences
-        filename = filename.replace('..', '')
+        while '..' in filename:
+            filename = filename.replace('..', '')
 
         # Remove other dangerous characters
         for c in PathSecurity.DANGEROUS_CHARS:

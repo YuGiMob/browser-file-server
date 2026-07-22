@@ -275,7 +275,6 @@ def apply_env_vars(config: Dict[str, Any]) -> Dict[str, Any]:
         "FILESERVER_SHOW_HIDDEN": ("ui", "show_hidden"),
         "FILESERVER_DEFAULT_SORT": ("ui", "default_sort"),
         "FILESERVER_SHOW_PREVIEW": ("ui", "show_preview"),
-        "FILESERVER_SHOW_THUMBNAILS": ("ui", "show_thumbnails"),
     }
 
     for env_var, path in env_mappings.items():

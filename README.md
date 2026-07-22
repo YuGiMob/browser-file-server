@@ -178,8 +178,8 @@ Options:
 | GET | `/raw?p=PATH` | Download file |
 | GET | `/search?q=QUERY` | Search files |
 | GET | `/download?p=PATH` | Download folder as ZIP |
-| GET | `/api/files` | JSON file listing |
-| GET | `/health` | Health check |
+| GET | `/api/files` | JSON file listing (`[{name, path, is_dir, size, modified, mime_type, ...}]`) |
+| GET | `/health` | Health check (`{"status": "healthy", "version": "...", "uptime": ...}`) |
 | POST | `/save` | Save file |
 | POST | `/upload` | Upload files |
 | POST | `/mkdir` | Create directory |
