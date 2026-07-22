@@ -55,10 +55,11 @@ class FileServerHandler(BaseHTTPRequestHandler):
     _ip_filter: Optional[IPFilter] = None
     _security_headers: Optional[SecurityHeaders] = None
     _csrf_secret: Optional[bytes] = None
+    _storage: Optional[Storage] = None
 
     def __init__(self, *args, **kwargs):
         self.config = self._config
-        self.storage = Storage(
+        self.storage = self._storage or Storage(
             root=self.config.get_root_path(),
             show_hidden=self.config.ui.show_hidden,
         )
@@ -113,7 +114,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
 
     def log_message(self, format, *args):
         logger.info(
-            f"[{self.request_id}] {self.address_string()} - {format % args}",
+            f"[{self.request_id}] {self.client_address[0]} - {format % args}",
             extra={
                 'request_id': self.request_id,
                 'client_ip': self.client_address[0],
@@ -147,6 +148,34 @@ class FileServerHandler(BaseHTTPRequestHandler):
         if self.command != "HEAD":
             self.wfile.write(body)
 
+    def _send_file_headers(
+        self,
+        status: int,
+        content_type: str,
+        content_length: int,
+        last_modified: str,
+        content_range: Optional[str] = None,
+        extra_headers: Optional[Dict[str, str]] = None,
+    ):
+        self.send_response(status)
+        self.send_header('Content-Type', content_type)
+        self.send_header('Content-Length', str(content_length))
+        if content_range:
+            self.send_header('Content-Range', content_range)
+        self.send_header('Last-Modified', last_modified)
+        self.send_header('Cache-Control', f'private, max-age={CACHE_MAX_AGE}')
+        self.send_header('X-Request-ID', self.request_id)
+        for key, value in self.security_headers.get_headers().items():
+            self.send_header(key, value)
+        if extra_headers:
+            skip_keys = {'Content-Length', 'Last-Modified'}
+            if content_range:
+                skip_keys.add('Content-Range')
+            for key, value in extra_headers.items():
+                if key not in skip_keys:
+                    self.send_header(key, value)
+        self.end_headers()
+
     def _send_file_stream(
         self,
         file_path: Path,
@@ -155,6 +184,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
     ):
         stat = file_path.stat()
         file_size = stat.st_size
+        last_modified = time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.gmtime(stat.st_mtime))
 
         range_header = self.headers.get('Range', '')
         if range_header and range_header.startswith('bytes='):
@@ -183,20 +213,15 @@ class FileServerHandler(BaseHTTPRequestHandler):
             if ranges:
                 start, end = ranges[0]
                 content_length = end - start + 1
-                self.send_response(206)
-                self.send_header('Content-Type', content_type)
-                self.send_header('Content-Length', str(content_length))
-                self.send_header('Content-Range', f'bytes {start}-{end}/{file_size}')
-                self.send_header('Last-Modified', time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.gmtime(stat.st_mtime)))
-                self.send_header('Cache-Control', f'private, max-age={CACHE_MAX_AGE}')
-                self.send_header('X-Request-ID', self.request_id)
-                for key, value in self.security_headers.get_headers().items():
-                    self.send_header(key, value)
-                if extra_headers:
-                    for key, value in extra_headers.items():
-                        if key not in ('Content-Length', 'Content-Range'):
-                            self.send_header(key, value)
-                self.end_headers()
+                content_range = f'bytes {start}-{end}/{file_size}'
+                self._send_file_headers(
+                    status=206,
+                    content_type=content_type,
+                    content_length=content_length,
+                    last_modified=last_modified,
+                    content_range=content_range,
+                    extra_headers=extra_headers,
+                )
                 if self.command == 'HEAD':
                     return
                 try:
@@ -214,22 +239,13 @@ class FileServerHandler(BaseHTTPRequestHandler):
                     logger.exception(f'Error streaming file: {e}')
                 return
 
-        self.send_response(200)
-        self.send_header('Content-Type', content_type)
-        self.send_header('Content-Length', str(file_size))
-        self.send_header('Last-Modified', time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.gmtime(stat.st_mtime)))
-        self.send_header('Cache-Control', f'private, max-age={CACHE_MAX_AGE}')
-        self.send_header('X-Request-ID', self.request_id)
-
-        for key, value in self.security_headers.get_headers().items():
-            self.send_header(key, value)
-
-        if extra_headers:
-            for key, value in extra_headers.items():
-                if key not in ('Content-Length', 'Last-Modified'):
-                    self.send_header(key, value)
-
-        self.end_headers()
+        self._send_file_headers(
+            status=200,
+            content_type=content_type,
+            content_length=file_size,
+            last_modified=last_modified,
+            extra_headers=extra_headers,
+        )
 
         if self.command == 'HEAD':
             return
@@ -670,9 +686,11 @@ class FileServerHandler(BaseHTTPRequestHandler):
         is_text = self.storage.is_text_file(target)
 
         content = None
+        truncated = False
         if is_text:
             try:
                 content = target.read_text(encoding="utf-8", errors="replace")[:51200]
+                truncated = stat.st_size > 51200
             except (OSError, PermissionError, UnicodeDecodeError):
                 logger.warning(f"Could not read file content for preview: {rel_path}")
 
@@ -683,6 +701,7 @@ class FileServerHandler(BaseHTTPRequestHandler):
             file_size=stat.st_size,
             content=content,
             is_text=is_text,
+            truncated=truncated,
             csrf_token=self.csrf_token,
         )
 
@@ -1137,4 +1156,8 @@ def create_handler_class(config: Config):
         _ip_filter = ip_filter
         _security_headers = security_headers
         _csrf_secret = csrf_secret
+        _storage = Storage(
+            root=config.get_root_path(),
+            show_hidden=config.ui.show_hidden,
+        )
     return ConfiguredHandler

@@ -12,6 +12,7 @@ Priority: CLI args > Environment variables > Config file > Defaults
 import os
 import sys
 import argparse
+import copy
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
@@ -219,14 +220,19 @@ def _parse_simple_config(config_path: str) -> Dict[str, Any]:
                 elif "," in value:
                     value = [v.strip() for v in value.split(",")]
 
-                current_section[key] = value
+                parts = key.split('.')
+                target = current_section
+                for part in parts[:-1]:
+                    if part not in target or not isinstance(target[part], dict):
+                        target[part] = {}
+                    target = target[part]
+                target[parts[-1]] = value
 
     return config
 
-
 def merge_configs(defaults: Dict[str, Any], overrides: Dict[str, Any]) -> Dict[str, Any]:
     """Deep merge two configuration dictionaries."""
-    result = defaults.copy()
+    result = copy.deepcopy(defaults)
 
     for key, value in overrides.items():
         if key in result and isinstance(result[key], dict) and isinstance(value, dict):
@@ -235,7 +241,6 @@ def merge_configs(defaults: Dict[str, Any], overrides: Dict[str, Any]) -> Dict[s
             result[key] = value
 
     return result
-
 
 def apply_env_vars(config: Dict[str, Any]) -> Dict[str, Any]:
     """Apply environment variable overrides to configuration."""

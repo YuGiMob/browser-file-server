@@ -17,6 +17,7 @@ def render_preview(
     file_size: int,
     content: Optional[str] = None,
     is_text: bool = False,
+    truncated: bool = False,
     csrf_token: str = "",
 ) -> str:
     """
@@ -40,7 +41,7 @@ def render_preview(
 
     # Determine preview type
     preview_content = _get_preview_content(
-        file_path, file_name, mime_type, ext, content, is_text
+        file_path, file_name, mime_type, ext, content, is_text, truncated
     )
 
     # Format file size
@@ -96,6 +97,7 @@ def _get_preview_content(
     ext: str,
     content: Optional[str],
     is_text: bool,
+    truncated: bool = False,
 ) -> str:
     """Get preview content based on file type."""
     encoded_path = quote(file_path)
@@ -139,12 +141,16 @@ def _get_preview_content(
 
     # Text file preview
     if is_text and content:
+        truncation_notice = ""
+        if truncated:
+            truncation_notice = f'<div style="padding: 8px 12px; font-size: 13px; color: var(--warning); background: var(--warning-bg); border-radius: var(--radius-sm); margin-bottom: 8px;">💡 Showing first 50 KB. <a href="{RAW}?p={encoded_path}">Download full file</a></div>'
         return f"""
         <div style="position: relative;">
             <button class="btn btn-sm btn-ghost" style="position: absolute; top: 8px; right: 8px;"
                     onclick="copyContent()">
                 📋 Copy
             </button>
+            {truncation_notice}
             <pre class="preview-code" id="code-content">{escape_html(content)}</pre>
         </div>
         <script>

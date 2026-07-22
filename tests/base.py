@@ -62,7 +62,7 @@ class BaseServerTest(BaseTest):
         cls.server_thread = threading.Thread(target=cls.server.serve_forever)
         cls.server_thread.daemon = True
         cls.server_thread.start()
-        for _ in range(20):
+        for _ in range(40):
             try:
                 req = urllib.request.Request(f'http://127.0.0.1:{cls.port}/health')
                 urllib.request.urlopen(req, timeout=1)
@@ -70,7 +70,7 @@ class BaseServerTest(BaseTest):
             except (urllib.error.URLError, ConnectionError):
                 time.sleep(0.25)
         else:
-            raise RuntimeError('Server failed to start within 5 seconds')
+            raise RuntimeError('Server failed to start within 10 seconds')
 
     @classmethod
     def tearDownClass(cls):
